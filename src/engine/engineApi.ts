@@ -262,6 +262,10 @@ function charToId(): Map<string, number> {
 }
 
 const HAN = /\p{Script=Han}/u;
+/** Is a single character present in the active 字库? (per-cell 造诗 grid validation feedback.) */
+export function inCharset(ch: string): boolean {
+  return !!ch && charToId().has(ch);
+}
 /** Han chars of `han` → 字库 ids, or null if any char is outside the 字库. */
 function hanToIds(han: string): number[] | null {
   const map = charToId();

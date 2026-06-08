@@ -23,6 +23,7 @@ export function HUD() {
   const toggleQuality = useStore((s) => s.toggleQuality);
   const gravity = useStore((s) => s.gravity);
   const toggleGravity = useStore((s) => s.toggleGravity);
+  const toggleUI = useStore((s) => s.toggleUI);
   const speed = useStore((s) => s.speed);
   const loaded = useStore((s) => s.loaded);
   const m = getManifest();
@@ -87,6 +88,13 @@ export function HUD() {
             {m.poetCount.toLocaleString()} 诗人 · {m.poemCount.toLocaleString()} 首
           </div>
         )}
+        <button
+          className="ui-hide-btn"
+          onClick={toggleUI}
+          title="隐藏全部界面以便截图 · 快捷键 H 恢复"
+        >
+          隐藏界面 ⌨H
+        </button>
       </div>
 
       <div className="hud-bottom">

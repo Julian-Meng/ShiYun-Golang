@@ -389,7 +389,7 @@ canvas {
   left: 50%;
   transform: translateX(-50%);
   z-index: 22;
-  width: 280px;
+  width: 320px;
 }
 .search input {
   width: 100%;
@@ -449,15 +449,17 @@ canvas {
   display: flex;
   gap: 6px;
   margin-bottom: 6px;
-  justify-content: center;
 }
 .stab {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap; /* keep 造诗/朝代 on one line — they were wrapping in the narrow panel */
   background: rgba(8, 10, 18, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   color: var(--muted);
-  font-size: 12px;
-  padding: 4px 16px;
+  font-size: 13px;
+  padding: 5px 4px;
   cursor: pointer;
 }
 .stab.on {
@@ -727,23 +729,19 @@ canvas {
   text-align: center;
 }
 
-/* hide-all-UI (screenshot) button */
+/* hide-all-UI (screenshot) button — lives in the HUD top bar (not overlapping the speed readout) */
 .ui-hide-btn {
-  position: fixed;
-  right: 16px;
-  bottom: 14px;
-  z-index: 30;
-  background: rgba(8, 10, 18, 0.6);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--muted);
   font-size: 12px;
   padding: 6px 12px;
   border-radius: 8px;
   cursor: pointer;
+  white-space: nowrap;
 }
 .ui-hide-btn:hover {
-  color: var(--fg);
+  color: var(--gold);
   border-color: rgba(255, 210, 122, 0.4);
 }
 
@@ -752,7 +750,13 @@ canvas {
   width: auto;
 }
 .stab.collapse {
-  padding: 4px 11px;
+  flex: none;
+  padding: 5px 11px;
+}
+.compose-grid .cell.bad {
+  border-color: rgba(255, 95, 95, 0.75);
+  color: #ff8a8a;
+  background: rgba(255, 60, 60, 0.1);
 }
 .compose-dir {
   display: flex;
@@ -874,6 +878,93 @@ canvas {
 .poet-panel::-webkit-scrollbar-track,
 .poem-panel::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* first-run onboarding (once per browser, skippable) */
+.onb-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 3, 8, 0.55);
+  backdrop-filter: blur(3px);
+  animation: rise 0.3s ease;
+}
+.onb-card {
+  width: min(440px, 88vw);
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 210, 122, 0.08), transparent 60%),
+    linear-gradient(180deg, rgba(16, 18, 28, 0.97), rgba(8, 9, 16, 0.96));
+  border: 1px solid rgba(255, 210, 122, 0.22);
+  border-radius: 18px;
+  padding: 26px 26px 20px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+.onb-step {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+}
+.onb-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  color: var(--gold);
+  margin: 8px 0 12px;
+  letter-spacing: 0.06em;
+}
+.onb-body {
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--fg);
+  text-align: left;
+}
+.onb-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin: 16px 0 14px;
+}
+.onb-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+}
+.onb-dots span.on {
+  background: var(--gold);
+}
+.onb-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.onb-skip {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--muted);
+  padding: 8px 20px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.onb-skip:hover {
+  color: var(--fg);
+}
+.onb-next {
+  background: linear-gradient(180deg, rgba(255, 210, 122, 0.9), rgba(245, 200, 110, 0.8));
+  border: none;
+  color: #1a1206;
+  font-weight: 600;
+  padding: 8px 26px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.onb-next:hover {
+  filter: brightness(1.08);
 }
 
 /* loading screen */

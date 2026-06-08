@@ -38,7 +38,8 @@ bundle at `C:\Users\Cohen\Desktop\shiyun-ALL-branches-backup.bundle` (restore: `
 ```bash
 npm install
 npm run dev        # vite → http://localhost:5173
-npm test           # vitest: 53 tests (47 engine round-trip + 6 GPU-pick) — must stay green
+npm test           # vitest: 57 tests (47 engine + 6 GPU-pick + 4 engineApi compose round-trip)
+npm run deploy:build  # build + precompress for a static host (see docs/DEPLOY.md) — Range-safe
 npm run build      # tsc --noEmit && vite build  (the real verify gate)
 npm run typecheck
 ```
@@ -86,6 +87,7 @@ Three pull modes to feel the project: plain random「牛蝛茙漂綵」→ 格�
 - [docs/DATA_CONTRACT.md](docs/DATA_CONTRACT.md) — static-asset schemas, corpus, dynasty taxonomy + normalization map.
 - [docs/FRONTEND_GUIDE.md](docs/FRONTEND_GUIDE.md) — **rebuild contract**: the 4 stable interfaces a new frontend uses (load.ts / engineApi / poetPosition / store), interaction model, locked direction notes.
 - [docs/PIPELINE.md](docs/PIPELINE.md) — how the data + lexicon are built.
+- [docs/DEPLOY.md](docs/DEPLOY.md) — static deploy (nginx + brotli + the poems/ Range gotcha).
 
 `src/data/contract.ts` is the typed source-of-truth for every data asset.
 
@@ -132,7 +134,35 @@ node pipeline/build-lexicon.mjs                            # lexicon.json (needs
 
 ## 6. Remaining work (next, roughly in priority)
 
-**DONE — UX iteration round 2 (latest; verified: build + 53/53 + e2e DOM):**
+**DONE — UX iteration round 3 (latest; verified: build + 57/57 + e2e DOM, GPU-pick 6/6 after a clean restart):**
+- ✅ **Round centre (less obvious shape)** — the bright central CROSS was the POET stars: near the core the
+  4 spiral arms converge into an X. `poetPosition` now spreads poets fully azimuthally near the centre
+  (`centerBlur`, strong at the core → 0 by t≈0.42) so the core reads as a ROUND bulge blended into the
+  diffuse galaxy haze (= the visual-fusion ask). Arms stay intact further out. *(Tune on a real GPU.)*
+- ✅ **Filter tabs no longer wrap** — `.stab` is `flex:1; white-space:nowrap`; panel 280→320px (造诗/朝代
+  were breaking to two lines).
+- ✅ **朝代 全部 is a toggle** — when all dynasties are shown the button reads **全不选** (deselect all);
+  when some are hidden it reads **全部** (show all). (`SearchPanel`, `showOnly([])` hides all.)
+- ✅ **造诗 自由 example** = 再别康桥's opening 5 lines (was an English/Claude example).
+- ✅ **造诗 grid feedback** — a cell whose char is outside the 字库 turns red (`inCharset` → `.cell.bad`),
+  so you see WHY the 编号 isn't computing.
+- ✅ **诗人 search ignores digit/latin queries** — typing "1"/"2" used to surface the corpus's same-name
+  disambiguation suffixes (张生1/张生2 …, only 13 such names + one junk "666"); now a non-Han query returns
+  nothing. (`load.ts::searchPoets`; the names are a corpus artifact, left as-is — they ARE distinct poets.)
+- ✅ **隐藏界面 moved into the HUD top bar** (was overlapping the bottom speed readout). Still + the H hotkey.
+- ✅ **First-run onboarding** (`ui/Onboarding.tsx`) — a 3-step skippable guide, shown ONCE per browser
+  (`localStorage shiyun_onboarded_v1`; clearing site data shows it again). Pure client-side.
+- ✅ **Deploy kit** (`deploy/nginx.conf` + `deploy/precompress.mjs` + [docs/DEPLOY.md](docs/DEPLOY.md),
+  `npm run deploy:build`) — static host, brotli/gzip for assets but **poems/*.json served RAW** so the
+  per-poet HTTP Range slice stays valid (the one deploy gotcha). lines/ compress normally.
+- ✅ **Compose round-trip tests** — `engineApi.test.ts` (4): grid `textBabelIndex`→`pullByIndex` and 自由
+  `anyTextIndex`→`pullByIndex("ziyou")` reproduce the exact poem; `inCharset`; rejects wrong-length input.
+- **CONSULTED, not built:** mobile/touch (PM4 — feasible, deferred to next agent; see notes); narrative
+  guided-tours (PM5 — dropped, too much copywriting); same-pass poet/decoration draw (dev — the visual
+  fusion goal is met by `centerBlur`; the literal single-draw merge stays optional). 内嵌 share-card +
+  find-real "奇迹时刻" (PM2/PM3 — approved, not yet built).
+
+**DONE — UX iteration round 2 (verified: build + 53/53 + e2e DOM):**
 - ✅ **造诗 (compose) tab** — the intuitive forward direction: pick a form → for 五/七绝/律 a **fill-in
   grid** of single-char cells, for **自由** a textarea (回车换行), and the engine reports the catalog
   编号 as you type (`textBabelIndex` / `anyTextIndex`) — no number-guessing. A `填字→编号 / 凭编号→诗`

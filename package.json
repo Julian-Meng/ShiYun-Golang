@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "precompress": "node deploy/precompress.mjs",
+    "deploy:build": "npm run build && npm run precompress"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.3",

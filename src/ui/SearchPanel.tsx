@@ -7,6 +7,7 @@ import {
   pulledFromIndex,
   textBabelIndex,
   anyTextIndex,
+  inCharset,
   type HalfIndex,
   type IndexPoem,
   type PullForm,
@@ -289,9 +290,10 @@ export function SearchPanel() {
                     {Array.from({ length: g.rows * g.cols }, (_, i) => (
                       <input
                         key={i}
-                        className="cell"
+                        className={cells[i] && !inCharset(cells[i]) ? "cell bad" : "cell"}
                         value={cells[i] ?? ""}
                         maxLength={2}
+                        title={cells[i] && !inCharset(cells[i]) ? "此字不在字库,无法编号" : undefined}
                         onChange={(e) => setCell(i, e.target.value)}
                         spellCheck={false}
                       />
@@ -304,7 +306,7 @@ export function SearchPanel() {
                   <textarea
                     className="idx-input"
                     value={freeText}
-                    placeholder={"每行一句,如:\n你\n我\n爱世界\n爱Claude"}
+                    placeholder={"每行一句,如:\n轻轻的我走了\n正如我轻轻的来\n我轻轻的招手\n作别西天的云彩\n那河畔的金柳"}
                     onChange={(e) => onFreeText(e.target.value)}
                     spellCheck={false}
                     rows={5}
@@ -383,7 +385,10 @@ export function SearchPanel() {
         <div className="line-results">
           <div className="lr-section">
             <div className="legend-presets">
-              <button onClick={showAll}>全部</button>
+              {/* 全部 toggles: when everything is shown it deselects all, otherwise it selects all */}
+              <button onClick={() => (hidden.size === 0 ? showOnly([]) : showAll())}>
+                {hidden.size === 0 ? "全不选" : "全部"}
+              </button>
               <button onClick={() => showOnly(MAJOR)}>主要</button>
               <button onClick={() => showOnly(["tang", "wudai", "song"])}>唐宋</button>
             </div>

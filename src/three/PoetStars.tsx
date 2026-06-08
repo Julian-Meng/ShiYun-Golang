@@ -34,7 +34,12 @@ export function poetPosition(p: PoetRow): [number, number, number] {
   // tight arm σ → poets concentrate ONTO the same 4 spiral arms as the backdrop (woven in,
   // not a separate ring layer); the dynasty colour then reads as a gradient ALONG the arms.
   const armDev = gauss3(a, b, cc) * GALAXY.ARM_SPREAD * 0.45;
-  const ang = branch + twist + armDev;
+  // Near the centre the 4 arms converge into a hard CROSS/X. Spread poets fully azimuthally there
+  // (strong at the core, gone by t≈0.42) so the centre reads as a ROUND bulge blended into the
+  // diffuse galaxy core — not a stark cross of dots. Keeps the spiral arms intact further out.
+  const az = ((h >>> 24) & 0xff) / 255;
+  const centerBlur = Math.max(0, 0.42 - t) / 0.42; // 1 at core → 0 by t=0.42
+  const ang = branch + twist + armDev + (az - 0.5) * Math.PI * 2 * centerBlur;
   const ya = ((h >>> 5) & 0xff) / 255, yb = ((h >>> 13) & 0xff) / 255, yc = ((h >>> 21) & 0xff) / 255;
   const bulge = 1 + Math.max(0, 0.45 - t) * 2.6; // taller near the centre, thin at the rim
   const y = gauss3(ya, yb, yc) * rr * GALAXY.THICKNESS * 2.1 * bulge;

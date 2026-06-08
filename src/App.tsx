@@ -10,6 +10,7 @@ import { HUD } from "./ui/HUD";
 import { PoemPanel } from "./ui/PoemPanel";
 import { PoetPanel } from "./ui/PoetPanel";
 import { SearchPanel } from "./ui/SearchPanel";
+import { Onboarding } from "./ui/Onboarding";
 import { useStore } from "./state/store";
 import { applyHash, syncHash } from "./state/permalink";
 import { loadData } from "./data/load";
@@ -21,7 +22,6 @@ export default function App() {
   const selected = useStore((s) => s.selected);
   const selectedPoet = useStore((s) => s.selectedPoet);
   const uiHidden = useStore((s) => s.uiHidden);
-  const toggleUI = useStore((s) => s.toggleUI);
 
   useEffect(() => {
     loadData()
@@ -88,15 +88,10 @@ export default function App() {
           {loaded && <SearchPanel />}
           <PoemPanel />
           <PoetPanel />
-          <button
-            className="ui-hide-btn"
-            onClick={toggleUI}
-            title="隐藏全部界面以便截图 · 快捷键 H 恢复"
-          >
-            隐藏界面 ⌨H
-          </button>
         </>
       )}
+
+      {loaded && <Onboarding />}
 
       {!loaded && (
         <div className="loading-screen">

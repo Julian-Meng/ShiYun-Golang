@@ -33,6 +33,8 @@ const GRID: Record<string, { rows: number; cols: number }> = {
   qilu: { rows: 8, cols: 7 },
 };
 const MAJOR = DYNASTIES.filter((d) => d.major).map((d) => d.key);
+const HAN = /\p{Script=Han}/u;
+const hanChars = (s: string) => [...s].filter((c) => HAN.test(c)); // keep only 汉字 (drop pinyin / 标点 / 空白)
 
 type Tab = "poet" | "line" | "compose" | "dynasty";
 type RealHit = { name: string; title: string } | null;
@@ -60,7 +62,7 @@ export function SearchPanel() {
   // 造诗 tab: compose (fill chars → 编号) or reverse (编号 → 诗)
   const [composeForm, setComposeForm] = useState<PullForm>("wujue");
   const [composeDir, setComposeDir] = useState<"make" | "reverse">("make");
-  const [cells, setCells] = useState<string[]>([]); // grid chars (fixed forms)
+  const [gridText, setGridText] = useState(""); // fixed-form input — ONE field (IME + paste friendly)
   const [freeText, setFreeText] = useState(""); // 自由: one line per textarea row
   const [made, setMade] = useState<{ lines: string[]; index: string; digits: number; chars: number } | null>(null);
   const [madeReal, setMadeReal] = useState<RealHit>(null);
@@ -114,10 +116,12 @@ export function SearchPanel() {
   // ── 造诗·填字 → 编号 ──────────────────────────────────────────────────────
   // Recompute the catalog 编号 from the chars the user typed (fixed grid, or 自由 lines). No number
   // math by the user — they write a poem, the engine reports its address (+ whether it's a real poem).
-  function recomputeMake(form: PullForm, gridCells: string[], free: string) {
+  function recomputeMake(form: PullForm, gridT: string, free: string) {
     setMadeReal(null);
     if (form === "ziyou") {
-      const lines = free.split("\n").map((l) => l.trim()).filter(Boolean);
+      // split on newlines OR punctuation/space, then keep ONLY 字本身 — so pasting
+      // 「床前明月光,疑是地上霜.」 works and every line round-trips through the 字库.
+      const lines = free.split(/[\n\r，。；！？、,.;!?\s]+/).map((s) => hanChars(s).join("")).filter(Boolean);
       const r = anyTextIndex(lines);
       if (!r) return setMade(null);
       setMade({ lines, index: r.index, digits: r.digits, chars: r.chars });
@@ -126,14 +130,15 @@ export function SearchPanel() {
       return;
     }
     const g = GRID[form];
-    const chars = gridCells.slice(0, g.rows * g.cols);
-    if (chars.length < g.rows * g.cols || chars.some((c) => !c)) return setMade(null); // not full yet
-    const han = chars.join("");
-    const r = textBabelIndex(form as FormId, han);
+    const L = g.rows * g.cols;
+    const chars = hanChars(gridT); // only 汉字 (pinyin / 标点 / latin dropped → IME + paste both work)
+    if (chars.length < L) return setMade(null); // not enough chars yet
+    const use = chars.slice(0, L);
+    const r = textBabelIndex(form as FormId, use.join(""));
     if (!r) return setMade(null); // some char not in 字库
     const lines: string[] = [];
-    for (let i = 0; i < g.rows; i++) lines.push(chars.slice(i * g.cols, (i + 1) * g.cols).join(""));
-    setMade({ lines, index: r.index, digits: r.digits, chars: han.length });
+    for (let i = 0; i < g.rows; i++) lines.push(use.slice(i * g.cols, (i + 1) * g.cols).join(""));
+    setMade({ lines, index: r.index, digits: r.digits, chars: use.length });
     const token = ++madeReqRef.current;
     findReal(lines).then((hit) => madeReqRef.current === token && setMadeReal(hit));
   }
@@ -143,20 +148,16 @@ export function SearchPanel() {
     setMadeReal(null);
     setRev(null); // clear the other direction's stale poem so its form/label never mismatches
     setRevReal(null);
-    if (composeDir === "make") recomputeMake(f, cells, freeText);
+    if (composeDir === "make") recomputeMake(f, gridText, freeText);
     else if (idxInput) runReverse(f, idxInput);
   }
-  function setCell(i: number, v: string) {
-    const ch = [...v].slice(-1)[0] ?? ""; // keep only the last char typed
-    const next = cells.slice();
-    while (next.length <= i) next.push("");
-    next[i] = ch;
-    setCells(next);
-    recomputeMake(composeForm, next, freeText);
+  function onGridText(v: string) {
+    setGridText(v);
+    recomputeMake(composeForm, v, freeText);
   }
   function onFreeText(v: string) {
     setFreeText(v);
-    recomputeMake(composeForm, cells, v);
+    recomputeMake(composeForm, gridText, v);
   }
 
   // ── 造诗·凭编号 → 诗 (reverse) ────────────────────────────────────────────
@@ -285,19 +286,25 @@ export function SearchPanel() {
             <div className="lr-section">
               {g ? (
                 <>
-                  <div className="lr-head">逐字填诗（{g.rows} 行 × {g.cols} 字）</div>
+                  <div className="lr-head">逐字填诗（{g.rows} 行 × {g.cols} 字 · 共 {g.rows * g.cols} 字）</div>
+                  {/* ONE input drives the grid — IME (拼音) + 粘贴 work normally; only 汉字 are kept. */}
+                  <input
+                    className="idx-input compose-text"
+                    value={gridText}
+                    placeholder="输入或粘贴整首诗(拼音 / 标点都行,自动只取汉字)…"
+                    onChange={(e) => onGridText(e.target.value)}
+                    spellCheck={false}
+                  />
                   <div className="compose-grid" style={{ gridTemplateColumns: `repeat(${g.cols}, 1fr)` }}>
-                    {Array.from({ length: g.rows * g.cols }, (_, i) => (
-                      <input
-                        key={i}
-                        className={cells[i] && !inCharset(cells[i]) ? "cell bad" : "cell"}
-                        value={cells[i] ?? ""}
-                        maxLength={2}
-                        title={cells[i] && !inCharset(cells[i]) ? "此字不在字库,无法编号" : undefined}
-                        onChange={(e) => setCell(i, e.target.value)}
-                        spellCheck={false}
-                      />
-                    ))}
+                    {Array.from({ length: g.rows * g.cols }, (_, i) => {
+                      const ch = hanChars(gridText)[i] ?? "";
+                      const bad = !!ch && !inCharset(ch);
+                      return (
+                        <div key={i} className={bad ? "cell bad" : "cell"} title={bad ? "此字不在字库,无法编号" : undefined}>
+                          {ch}
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               ) : (

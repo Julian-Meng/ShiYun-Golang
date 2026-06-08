@@ -49,7 +49,18 @@ export function poetPosition(p: PoetRow): [number, number, number] {
   const sxu = ((h2 >>> 2) & 0xff) / 255, sxs = ((h2 >>> 10) & 0xff) / 255;
   const szu = ((h2 >>> 18) & 0xff) / 255, szs = ((h2 >>> 26) & 0xff) / 255;
   const scat = (u: number, sgn: number) => Math.pow(u, 2.2) * (sgn < 0.5 ? -1 : 1) * 0.22 * rr;
-  return [Math.cos(ang) * rr + scat(sxu, sxs), y, Math.sin(ang) * rr + scat(szu, szs)];
+  // The rr-scaled scatter shrinks to ~0 near the centre, so the core stays a tight concentrated
+  // shape. Add a strong ABSOLUTE in-plane x/z scatter that peaks at the core and fades by t≈0.4,
+  // dissolving the centre into a diffuse round cloud (per feedback — strengthen centre x scatter).
+  const cs = Math.max(0, 0.4 - t) / 0.4; // 1 at core → 0 by t=0.4
+  const coreScat = cs * cs * GALAXY.RADIUS * 0.15;
+  const cjx = (((h2 >>> 5) & 0xff) / 255 - 0.5) * 2;
+  const cjz = (((h2 >>> 13) & 0xff) / 255 - 0.5) * 2;
+  return [
+    Math.cos(ang) * rr + scat(sxu, sxs) + cjx * coreScat,
+    y,
+    Math.sin(ang) * rr + scat(szu, szs) + cjz * coreScat,
+  ];
 }
 
 export function PoetStars() {

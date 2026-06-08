@@ -112,14 +112,15 @@ export function PoetPanel() {
             const isOpen = expanded.has(i);
             return (
               <div className={isHit ? "poem-item hit" : "poem-item"} key={i}>
-                <button className="pi-row" onClick={() => toggle(i)}>
+                <div className="pi-row" onClick={() => toggle(i)}>
                   <span className="pi-caret">{isOpen ? "▾" : "▸"}</span>
-                  <span className="pi-title">{pm.t || "（无题）"}</span>
+                  <span className="pi-title">
+                    {pm.t || "（无题）"}
+                    {isHit && <span className="pi-hit">搜的这首</span>}
+                  </span>
                   <span className="pi-form">{FORM_LABEL[pm.f]}</span>
-                  {isHit && <span className="pi-hit">搜的这首</span>}
-                  <span className="pi-row-spacer" />
                   <LazyCopy compute={() => indexFor(i)?.index ?? null} label="复制编号" />
-                </button>
+                </div>
                 {isOpen && (
                   <div className="pi-detail">
                     <div className="pi-body">

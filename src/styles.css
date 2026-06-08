@@ -386,8 +386,7 @@ canvas {
 .search {
   position: fixed;
   top: 64px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 20px; /* docked left so it never covers the crosshair / 定位 at screen centre */
   z-index: 22;
   width: 320px;
 }
@@ -529,6 +528,7 @@ canvas {
   margin-left: 8px;
   cursor: pointer;
   vertical-align: middle;
+  white-space: nowrap; /* never fold "复制编号" to two lines */
 }
 .copy-btn:hover {
   background: rgba(255, 210, 122, 0.22);
@@ -775,25 +775,28 @@ canvas {
 .compose-grid .cell {
   width: 100%;
   aspect-ratio: 1 / 1;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(8, 10, 18, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 6px;
   color: #f1ede2;
   font-family: var(--serif);
   font-size: 18px;
-  outline: none;
-  padding: 0;
 }
-.compose-grid .cell:focus {
-  border-color: rgba(255, 210, 122, 0.6);
-  background: rgba(255, 210, 122, 0.08);
+.compose-grid .cell:empty {
+  background: rgba(8, 10, 18, 0.4);
+}
+.compose-text {
+  font-family: var(--serif) !important;
+  font-size: 15px !important;
 }
 
 /* poet panel — title drawer / accordion */
 .pi-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* long titles wrap; caret/form/copy stay top-aligned, never fold */
   gap: 7px;
   width: 100%;
   background: none;
@@ -811,9 +814,24 @@ canvas {
   font-size: 10px;
   width: 10px;
   flex: none;
+  margin-top: 4px;
 }
-.pi-row-spacer {
+.pi-row .pi-title {
   flex: 1;
+  min-width: 0; /* allow the title column to shrink so the badge + copy button keep their width */
+  word-break: break-word;
+  line-height: 1.45;
+  font-size: 14px;
+}
+.pi-row .pi-form {
+  flex: none;
+  white-space: nowrap;
+  margin-top: 1px;
+}
+.pi-row .copy-btn {
+  flex: none;
+  white-space: nowrap;
+  margin-left: 0;
 }
 .pi-detail {
   padding: 2px 2px 8px 17px;

@@ -134,7 +134,23 @@ node pipeline/build-lexicon.mjs                            # lexicon.json (needs
 
 ## 6. Remaining work (next, roughly in priority)
 
-**DONE — UX iteration round 3 (latest; verified: build + 57/57 + e2e DOM, GPU-pick 6/6 after a clean restart):**
+**DONE — UX iteration round 4 (latest; verified: build + 57/57 + e2e DOM, GPU-pick after a clean restart):**
+- ✅ **造诗 grid input fixed (was the big bug)** — the fixed-form grid was per-cell `<input maxLength=2>`
+  that kept only the last char → IME (拼音) and multi-char paste were impossible. Now ONE normal input
+  drives the grid; it keeps only 汉字 (`hanChars`, drops pinyin/标点/latin) and the grid cells are
+  read-only DISPLAY divs. Paste 「床前明月光,疑是地上霜,举头望ab明月…」 → grid fills 床前明月光…故乡,
+  81-位 编号. (`SearchPanel`.)
+- ✅ **自由 punctuation filter** — 自由 now splits on newlines OR 标点/空白 and keeps only 汉字, so pasting
+  「轻轻的我走了,正如我轻轻的来,…」 (commas, no Enter) splits into clean lines. ("只识别文字本身".)
+- ✅ **Centre dissolved further** — `poetPosition` adds a strong ABSOLUTE in-plane x/z scatter that peaks
+  at the core and fades by t≈0.4 (on top of the round-3 azimuthal `centerBlur`), so the centre reads as a
+  diffuse round cloud, not a concentrated shape. *(Tune `coreScat` 0.15 on a real GPU.)*
+- ✅ **PoetPanel rows no longer fold** — `.pi-row` is a `<div>` (was a `<button>` nesting the copy
+  `<button>` — invalid HTML, caused the fold); long titles wrap in a `flex:1; min-width:0` column while the
+  form badge + 复制编号 stay `flex:none; white-space:nowrap` (the button was wrapping to two lines).
+- ✅ **Search panel docked LEFT** (`top:64px; left:20px`) so it never covers the centre crosshair / 定位.
+
+**DONE — UX iteration round 3 (verified: build + 57/57 + e2e DOM, GPU-pick 6/6 after a clean restart):**
 - ✅ **Round centre (less obvious shape)** — the bright central CROSS was the POET stars: near the core the
   4 spiral arms converge into an X. `poetPosition` now spreads poets fully azimuthally near the centre
   (`centerBlur`, strong at the core → 0 by t≈0.42) so the core reads as a ROUND bulge blended into the

@@ -14,7 +14,7 @@ never stored* (every poem ⇄ a big-integer index, bijectively).
 ```bash
 npm install
 npm run dev        # vite → http://localhost:5173
-npm test           # vitest: 34 engine round-trip tests (must stay green)
+npm test           # vitest: 44 engine round-trip tests (must stay green)
 npm run build      # tsc --noEmit && vite build  (the real verify gate)
 npm run typecheck
 ```
@@ -29,8 +29,8 @@ thing that breaks the hosting model; all index math + render is client-side).
 
 | Area | State |
 |---|---|
-| **Index engine** (`src/engine/engine.ts`) | Babel base-N + 格律 mixed-radix-product rank/unrank, nested dual index, reversible BigInt Feistel, + **自由 variable-length catalog** + **prefixIndex (半编号)**. **44/44 tests**. First char = most-significant digit. **The 全集编号 IS a true 正序 rank** (`babelRank` = the poem's lexicographic position over the freq-ordered 字库) — `babelUnrank` reverses it (`engineApi.pullByIndex`), so 诗⇄编号 is an exact bijection (NOT a hash; the Feistel scatter is used only for spatial layout, never for the displayed number). |
-| **Real data** | Werneror corpus → **29,300 poets · 853,383 poems · 字库 N=12,783** (Simplified). In `public/data/`. |
+| **Index engine** (`src/engine/engine.ts`) | Babel base-N + 格律 mixed-radix-product rank/unrank, nested dual index, reversible BigInt Feistel, + **自由 variable-length catalog** + **prefixIndex (半编号)** + **编号反查 (pullByIndex)**. **44/44 tests**. First char = most-significant digit. **The 全集编号 IS a true 正序 rank** (`babelRank` = the poem's lexicographic position over the freq-ordered 字库) — `babelUnrank` reverses it (`engineApi.pullByIndex`), so 诗⇄编号 is an exact bijection (NOT a hash; the Feistel scatter is used only for spatial layout, never for the displayed number). |
+| **Real data** | Werneror corpus + modern 新诗 → **29,808 poets · 857,877 poems · 字库 N=12,877** (Simplified). In `public/data/`. |
 | **Real 格律** | 平水韵 lexicon (charlesix59, MIT + pinyin-pro tail): 平 5708 / 仄 7075 / 30 韵部. `公式 格律 toggle` produces tone-valid, rhyming poems. |
 | **Galaxy** | Realistic spiral: **~166k two-layer particles** (soft dim dust + sparse bright arm stars) + a **dense particle bulge** on an exponential profile (no hard glow-sprite → smooth core), **Gaussian point falloff** `exp(-4.5d²)` (continuous nebulosity, not dots), value-noise clumping + dust gaps, HII knots, warm-core→blue-arm colour, **`UnrealBloom`** for HDR glow. **画质·高/低 toggle** (`store.quality`) halves counts + drops bloom for weak GPUs. |
 | **Poets woven into the arms** | `poetPosition`: gaussian radial spread (blends dynasty colours) + concentrated onto the **same 4 spiral arms** as the backdrop (`armDev ×0.45`) → colour reads as a gradient ALONG the arms, not concentric rings; gaussian Y-thickness swells toward the centre (depth). **Famous poets** (`famousPoets.ts`) → 2.4× size + gilded glow (李白/杜甫/苏轼/徐志摩… are visible landmark "明星"). |
@@ -45,9 +45,9 @@ thing that breaks the hosting model; all index math + render is client-side).
 | **Filters compose** | 诗体 × **常用字** (top-2500 freq chars, avoids 生僻乱码) × **格律**. e.g. 格律+常用字 → "思伦要锁馆/窟置右黎刍/肆昧家谐变/霜辉化铁驹" (valid + readable). |
 | **Dynasty filter** | 15-dynasty legend (先秦→当代) + presets (全部/主要/唐宋). |
 | **自由格式 / 词** (5th form) | A separate variable-length catalog: alphabet = 字库 N real glyphs + a block of W≈N/5 "break" glyphs (radix N+W, length 28). Random pulls split into 词-like variable lines (~4.6 行 × ~5 字). Own 自由目录编号; composes with 常用字; never 格律. `engine.freeUnrank/freeRank/splitFree`. |
-| **诗句 content search** | 诗句 tab: type a line → **真实诗人** hit via the first-line index (床前明月光 → 李白《静夜思》, surfaced + highlighted in PoetPanel) **AND** the **半编号** — the high-order address the opening pins (verified: 静夜思's 81-digit 全集编号 *starts with* the 5-char 半编号). `engineApi.halfIndex/halfIndexAuto`, `load.searchByLine`. |
-| **赠诗网络** | HUD 赠诗 toggle → 3,397 dedication edges (寄/赠/和/次韵… title-parsed; greedy-longest name match + 号/字 alias 晦庵=朱熹; one edge per 兼寄 recipient). 元稹→白居易, 苏辙→苏轼, 黄庭坚→苏轼…. **Soft curved Bézier arcs** (endpoint-faded, thin additive); ambient view shows weight≥2; selecting a poet → a clean lit ego-network. Committed `gifts.json` (86 KB). `three/GiftLines`. |
-| **编号反查 (reverse)** | 3rd search tab: paste a 全集编号 + pick a 诗体 → `pullByIndex` (`babelUnrank`) reconstructs the exact poem. **Full numbers, no ellipsis** + copy buttons everywhere. Verified round-trip: 床前明月光 → 81-digit 编号 → 静夜思. |
+| **半编号 (half-index)** | 诗句 tab also yields the **半编号** — the high-order address the opening line pins (verified: 静夜思's 全集编号 *starts with* the 5-char 半编号). Pure, always-on: `engineApi.halfIndex/halfIndexAuto`. |
+| **赠诗网络** | HUD 赠诗 toggle → **4,849 dedication edges** (寄/赠/和/次韵… title-parsed; greedy-longest name match + ~250-entry 字号 alias table — 少陵→杜甫, 子瞻→苏轼, 香山→白居易; one edge per 兼寄 recipient). 元稹→白居易, 苏辙→苏轼, 黄庭坚→苏轼…. Committed `gifts.json` (~126 KB). `three/GiftLines`. |
+| **新诗 / modern** | yuxqiu/modern-poetry contemporary set (Apache-2.0) folded in: +4,494 free-verse poems / +508 poets (徐志摩《再别康桥》, 海子, 北岛, 顾城, 戴望舒…). Free verse → form `other`; 民国→近现代 else 当代; their lines are searchable. |
 
 Three pull modes to feel the project: plain random「牛蝛茙漂綵」→ 格律「趰㵎憣烔岆」→ 格律+常用字
 「思伦要锁馆」; plus 自由格式 for 词-like变行, and the 诗句 tab to find a real poem from one line.
@@ -69,28 +69,31 @@ Three pull modes to feel the project: plain random「牛蝛茙漂綵」→ 格�
 ## 4. Data & regeneration
 
 `public/data/` **tracked in git**: `charset.json` (38 KB), `poets.index.json` (2.5 MB),
-`lexicon.json` (146 KB), `gifts.json` (110 KB, 赠诗 edges), `manifest.json`.
-**git-ignored** (regenerate as below): `poems/*.json` (231 MB, 256 buckets, real poem text)
-and `firstline/*.json` (75 MB, 256 buckets, the 诗句 content-search index). So a fresh
-`git worktree` has the galaxy + author search + 格律 + 自由格式 + 半编号 + **赠诗网络** working;
-only "click a poet → read their poems" and "诗句 search → the real poem" need the two heavy
-dirs regenerated.
+`lexicon.json` (147 KB), `gifts.json` (~126 KB, 赠诗 edges), `manifest.json`.
+**git-ignored** (regenerate as below): `poems/*.json` (235 MB, 256 buckets, real poem text)
+and `lines/*.json` (791 MB, 256 shards, the **all-lines** content-search index — every line,
+not just openings; renamed from `firstline/`). So a fresh `git worktree` has the galaxy +
+author search + 格律 + 自由格式 + 半编号 + **赠诗网络** working; only "click a poet → read their
+poems" and "诗句 search → the real poem" need the two heavy dirs regenerated.
 
 **Corpora already cloned on this machine** (external, not in the repo):
 - `C:\corpus\Werneror-Poetry` — all-dynasties corpus (MIT). Used by `pipeline/build-data.mjs`.
+- `C:\corpus\modern-poetry` — yuxqiu/modern-poetry 新诗 set (Apache-2.0). Also read by `build-data.mjs`.
 - `C:\corpus\Pingshui_Rhyme.json` — 平水韵 (charlesix59, MIT). Used by `pipeline/build-lexicon.mjs`.
 
 Regenerate (scripts now write into *this* project's `public/data` via relative paths):
 ```bash
-node --max-old-space-size=4096 pipeline/build-data.mjs     # charset + poets.index + poems
+node --max-old-space-size=4096 pipeline/build-data.mjs     # charset + poets.index + poems + lines/ + gifts
 node pipeline/build-lexicon.mjs                            # lexicon.json (needs opencc-js, pinyin-pro — devDeps)
 ```
+`build-data.mjs` now also reads the modern corpus + carries the expanded ~250-entry `GIFT_ALIAS`
+字号 table. When 字库 N changes, `lexicon.json` must be rebuilt too (it indexes 平/仄 by glyph).
 
 ---
 
 ## 5. Verifying changes (important gotchas)
 
-- **The verify gate is `npm run build` (tsc) + `npm test`.** Keep the 34 engine tests green.
+- **The verify gate is `npm run build` (tsc) + `npm test`.** Keep the 44 engine tests green.
 - **The headless preview GPU (swiftshader) CANNOT screenshot the dense additive galaxy** — it
   times out (not a crash; the page is alive). Verify visuals on a real GPU, or drive the DOM
   with the preview MCP's `preview_eval` (read `.poem-panel` / `.poet-panel` text, dispatch
@@ -105,32 +108,49 @@ node pipeline/build-lexicon.mjs                            # lexicon.json (needs
 ## 6. Remaining work (next, roughly in priority)
 
 **DONE this session** (all verified — `npm run build` + 44/44 tests + browser DOM checks):
-1. ✅ **自由格式 / 词** (5th form) — done as a radix-(N+W) catalog with a *block* of W≈N/5
-   break glyphs (a single N+1 separator is ~never hit at N=12,783, so it gives no line breaks;
-   the W-block makes breaks emergent: mean ~4.6 行 × ~5 字). `engine.freeUnrank/Rank/splitFree`,
-   `engineApi` ziyou branch of `pullAt`, HUD 自由 button, PoemPanel 自由目录编号.
-2. ✅ **Content search** — first-line index `firstline/{bucket}.json` (256 shards by
-   `fnv32(firstLine)&0xff`) + `load.searchByLine` (真实诗人) **and** `engine.prefixIndex` /
-   `engineApi.halfIndex` (半编号, pure, always-on). 床前明月光 → 李白《静夜思》 verified.
-3. ✅ **赠诗 network** — `build-data.mjs` title parse (markers + greedy-longest name match with a
-   2-char completeness guard; bare names **same-dynasty only**, 号/字 **aliases** resolve across
-   dynasties; one edge per distinct 兼寄 recipient) → committed `gifts.json` (3,397 edges) →
-   `three/GiftLines` + HUD toggle.
+1. ✅ **Galaxy realism** — Gaussian point falloff `exp(-4.5d²)` (continuous nebulosity, not
+   dots); ~166k particles in 3 populations (DUST + arm STARS + a dense particle **BULGE**
+   replacing the old hard glow-sprite → smooth core); exponential-disk radius, value-noise
+   clumping + dust gaps, HII knots, warm-core→blue-arm colour; `UnrealBloom` via
+   `@react-three/postprocessing` v2.19 (**new dep**). `src/three/Galaxy.tsx`.
+2. ✅ **Quality toggle** — HUD 画质·高/低 (`store.quality`); 低 halves galaxy counts
+   (~166k→~59k) and disables bloom (`App.tsx`). For weak GPUs.
+3. ✅ **Poets woven into the arms** — `PoetStars.tsx poetPosition`: gaussian radial spread
+   blends dynasty colours; `armDev ×0.45` concentrates poets onto the **same 4 spiral arms** as
+   the backdrop (colour = gradient ALONG arms, not concentric rings); gaussian Y-thickness swells
+   toward centre. **Famous poets** (`src/data/famousPoets.ts`, now incl. modern) → 2.4× size +
+   gilded-glow landmarks.
+4. ✅ **Void-pull markers** (`PulledStars.tsx`, full rewrite) — small twinkling captured-light
+   spots (not giant balls); lifecycle fade-in, cap 20 ALIVE (oldest flickers out + self-destructs),
+   distance-cull; a void click **glide-focuses** the camera (FlyControls fly-to now
+   camera-relative). `store.Pull` has an id; `MAX_PULLS=24`.
+5. ✅ **赠诗 arcs** (`GiftLines.tsx`) — cubic Bézier, control points pulled toward centre →
+   **bundled flows** (poor-man's hierarchical edge bundling, `BUNDLE=0.3`); a custom shader sends
+   a soft pulse giver→receiver (flow direction); endpoint-faded; ambient = weight≥3, selecting a
+   poet draws a clean ego-network.
+6. ✅ **编号反查 reverse search** (3rd search tab) — `engineApi.pullByIndex(form, indexStr)` unranks
+   a number back to its poem; full untruncated numbers everywhere + copy buttons
+   (`src/ui/CopyButton.tsx`); loop closure: checks the line index + full text and reports if the
+   number is a **real** poem.
+7. ✅ **Permalinks** (`src/state/permalink.ts`) — `#a=<poetId>` / `#p=<form>.<index>`; 🔗 分享
+   buttons in the poem + poet panels; `engineApi.pulledFromIndex` rebuilds a poem from a link; App
+   restores on load.
+8. ✅ **Product-grade poem UI** — `--serif` (楷/宋 stack) for poem text; gradient cards + gold accent.
+9. ✅ **Any-line content search** — pipeline now indexes **EVERY** line (not just openings) →
+   `public/data/lines/{bucket}.json` (256 shards, ~791 MB, git-ignored — renamed from
+   `firstline/`). 疑是地上霜 → 李白《静夜思》 (a non-first line) now works; `load.ts` reads `lines/`.
+10. ✅ **Modern 新诗 poets** — imported yuxqiu/modern-poetry (Apache-2.0, `C:/corpus/modern-poetry`):
+    +4,494 free-verse poems / +508 poets (徐志摩, 海子, 北岛, 顾城, 戴望舒…). Free verse → form
+    `other`; 民国→近现代 else 当代; their lines are searchable.
+11. ✅ **字号 alias table** expanded to ~250 entries (~120 poets) in `build-data.mjs GIFT_ALIAS` →
+    4,849 赠诗 edges (少陵→杜甫, 子瞻→苏轼, 香山→白居易…).
 
 **Still TODO:**
-4. **Polish** — GPU-pick at scale; per-poet (not per-bucket) poem fetch to cut egress.
-   ~~bloom~~ DONE (`@react-three/postprocessing` v2.19, R3F-8 compatible, `App.tsx` `<Bloom>`).
-   ~~galaxy density~~ DONE (166k two-layer particles + particle bulge + Gaussian falloff). Galaxy
-   counts (`Galaxy.tsx` DUST/STARS/BULGE) + bloom params are perf/taste knobs — tune on the
-   target GPU. 赠诗 lines are 1px (WebGL `lineWidth` cap) — soft curved arcs; for thicker lines
-   use `Line2`/`meshline`.
-5. **Deploy** — static build → `shiyun.<domain>` subdomain, nginx `brotli_static`, precompress
-   assets. See DATA_CONTRACT.md §deploy notes. No backend.
-
-**Search index follow-ups** (optional): the first-line index covers *opening* lines only (the
-床前明月光 case); whole-poem / non-opening-line search would need an all-lines inverted index
-(~4M lines). 赠诗 matching is name-only (misses 字/号 like 元美=王世贞) by design — a 字号→poet
-table (e.g. from Wikidata) would raise recall.
+12. **Deploy** — static build → `shiyun.<domain>` subdomain, nginx `brotli_static`, precompress
+    assets. See DATA_CONTRACT.md §deploy notes. No backend.
+13. **Polish** — GPU-pick at scale; per-poet (not per-bucket) poem fetch to cut egress; thicker
+    赠诗 lines (`Line2`/`meshline` — current arcs are 1px, WebGL `lineWidth` cap); 无名氏 collapse;
+    modern-poet **dynasty refinement** (a date table to split 近现代/当代 more finely than 民国-only).
 
 ### Locked decisions (don't relitigate without reason)
 - **Default = random (Babel) generation; no further self-built 平仄 research** — the 格律

@@ -61,8 +61,9 @@ fake tones/rhymes). When the Step-3 assets load, the app builds a real `PoetryDa
 ## Stack
 
 Vite + React 18 + TypeScript · `@react-three/fiber` 8 / `@react-three/drei` 9 / three 0.169
-· zustand 5. Vitest for the engine. 100% static build — **no backend** (see DEPLOY notes in
-DATA_CONTRACT.md). All index math + rendering is client-side.
+· `@react-three/postprocessing` 2.19 (UnrealBloom on the galaxy) · zustand 5. Vitest for the
+engine. 100% static build — **no backend** (see DEPLOY notes in DATA_CONTRACT.md). All index
+math + rendering is client-side.
 
 ## Build / run
 
@@ -75,10 +76,12 @@ npm run typecheck  # tsc --noEmit
 
 ## Status
 
-- **Step 2** ✅ engine + 34 round-trip tests green (MSB index convention for 半编号).
-- **Step 3** ✅ data SHIPPED: real Werneror corpus → **29,300 poets · 853,383 poems · 字库
-  N=12,783** (`pipeline/build-data.mjs`, see [PIPELINE.md](PIPELINE.md)). Loaded via
-  `data/load.ts` → `provider.setDataset`.
+- **Step 2** ✅ engine + 44 round-trip tests green (MSB index convention for 半编号).
+- **Step 3** ✅ data SHIPPED: real Werneror corpus → **29,808 poets · 857,877 poems · 字库
+  N=12,877** (`pipeline/build-data.mjs`, see [PIPELINE.md](PIPELINE.md)). Loaded via
+  `data/load.ts` → `provider.setDataset`. Now includes **新诗 modern poets** (yuxqiu/modern-poetry,
+  Apache-2.0: +4,494 free-verse poems / +508 poets — 徐志摩, 海子, 北岛, 顾城, 戴望舒…) as form
+  `other`, dated 近现代/当代; their lines are searchable.
 - **Step 4** ✅ real galaxy: `three/Galaxy` (procedural core+disk+dome), `three/PoetStars`
   (29k real poets, dynasty disk, hover/click-pick), `three/FlyControls` (slow 6-DOF + speed
   HUD + fly-to + raycast poet/void), `ui/SearchPanel` (author search→fly), `ui/PoetPanel`
@@ -86,10 +89,35 @@ npm run typecheck  # tsc --noEmit
   See [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md).
 - **Step 5** ✅ three more features SHIPPED (44/44 tests, verified in-browser):
   **自由格式/词** (5th `PullForm`, radix-(N+W) variable-length catalog — `engine.freeUnrank`);
-  **诗句 content search** (`firstline/` index → 床前明月光→李白《静夜思》, + `engine.prefixIndex`
-  半编号, always-on); **赠诗 network** (`gifts.json` 3,397 edges, 元稹→白居易/苏辙→苏轼 → `three/GiftLines`).
-- **Next** ⏳ GPU-pick + bloom polish; per-poet poem fetch; thicker 赠诗 lines; prod brotli + deploy;
-  optional whole-poem/all-lines search index; 字号→poet table for richer 赠诗 recall.
+  **诗句 content search** (line index → 床前明月光→李白《静夜思》, + `engine.prefixIndex`
+  半编号, always-on); **赠诗 network** (`gifts.json`, 元稹→白居易/苏辙→苏轼 → `three/GiftLines`).
+- **Step 6** ✅ realism + polish + reverse-loop SHIPPED (44/44 tests):
+  **galaxy realism** (`three/Galaxy` — ~166k particles in 3 pops: DUST + arm STARS + a dense
+  particle BULGE replacing the old glow-sprite → smooth core; Gaussian point falloff
+  `exp(-4.5d²)`; exponential-disk radius, value-noise clumping + dust gaps, HII knots,
+  warm-core→blue-arm colour; UnrealBloom via `@react-three/postprocessing`);
+  **画质 toggle** (`store.quality` high/low — low halves counts to ~59k + drops bloom, for weak GPUs);
+  **poets woven into the galaxy** (`three/PoetStars` — gaussian radial spread + armDev ×0.45 sets
+  poets on the SAME 4 spiral arms, colour gradient ALONG the arms, gaussian Y-thickness; FAMOUS
+  poets in `data/famousPoets.ts`, now incl. modern, render 2.4× as gilded landmarks);
+  **void-pull markers rewritten** (`three/PulledStars` — small twinkling captured-light spots, cap 20
+  alive with oldest flickering out + self-destruct, distance-cull; a void click glide-focuses the
+  camera; `store.Pull` now carries an id, `MAX_PULLS=24`);
+  **bundled + flowing 赠诗 arcs** (`three/GiftLines` — cubic Bézier pulled toward galaxy centre
+  (`BUNDLE=0.3`, poor-man's hierarchical edge bundling) + a shader pulse flowing giver→receiver,
+  endpoint-faded; ambient = weight≥3, selecting a poet draws a clean ego-network);
+  **编号反查 reverse search** (3rd search tab → `engineApi.pullByIndex` unranks a number back to its
+  poem, checking line index + full text and reporting whether the number is a REAL poem) with full
+  untruncated numbers + `ui/CopyButton`;
+  **permalinks** (`state/permalink.ts` — `#a=<poetId>` / `#p=<form>.<index>`, 🔗 分享 buttons via
+  `engineApi.pulledFromIndex`, restored on load);
+  **product-grade poem UI** (`--serif` Kaiti/Songti stack, gradient cards + gold accent);
+  **ANY-line content search** (pipeline now indexes EVERY line → `public/data/lines/{bucket}.json`,
+  256 shards, ~791 MB, git-ignored, renamed from `firstline/`; 疑是地上霜→李白《静夜思》 now resolves);
+  **赠诗 recall** boosted to **4,849 edges** via a ~250-entry 字号 alias table (~120 poets:
+  少陵→杜甫, 子瞻→苏轼, 香山→白居易…) in `build-data.mjs::GIFT_ALIAS`.
+- **Next** ⏳ deploy (static + brotli); GPU-pick at scale; per-poet poem fetch; thicker 赠诗 lines
+  (Line2); 无名氏 collapse; modern-poet dynasty refinement (date table).
 
 > Legacy `three/StarField.tsx` + `three/Landmarks.tsx` are the Step-4a placeholder field,
 > superseded by `PoetStars`/`Galaxy` — kept for reference, not mounted.

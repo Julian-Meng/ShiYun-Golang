@@ -74,14 +74,15 @@ export interface PoemShard {
   poets: Record<string, PoemRecord[]>; // poetId -> poems
 }
 
-/** One match in the first-line search index (firstline/{2-hex content bucket}.json). */
+/** One match in the content-search index (lines/{2-hex content bucket}.json). The index keys
+ *  EVERY line of every poem (not just openings), so any line is searchable — 疑是地上霜 → 静夜思. */
 export interface FirstLineRef {
   p: string; // poetId
   i: number; // poem index within the poet's poems[] (parallel to the poems shard)
   t: string; // title
-  f: FormId | "other"; // detected form
+  f: FormId | "other"; // detected form ("other" = 古体 / 自由诗 / 新诗)
 }
-export type FirstLineShard = Record<string, FirstLineRef[]>; // firstLine -> matching poems
+export type FirstLineShard = Record<string, FirstLineRef[]>; // line -> matching poems
 
 /** 赠诗 dedication edge: [fromPoetId, toPoetId, weight]. Both endpoints are corpus poets. */
 export type GiftEdge = [string, string, number];

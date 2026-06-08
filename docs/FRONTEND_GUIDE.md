@@ -11,15 +11,17 @@ loadData(base = "/data"): Promise<DataManifest>
 // PoetryDataset, and calls provider.setDataset() — engine math goes live.
 // Call once at boot; gate the 3D scene on completion (store.loaded).
 
-getPoets(): PoetRow[]                       // all ~29,300 poets, sorted by poemCount desc
+getPoets(): PoetRow[]                       // all ~29,808 poets, sorted by poemCount desc
 getPoet(id): PoetRow | undefined
 loadPoetPoems(id): Promise<PoemRecord[]>    // lazy — fetches the poet's bucket, caches it
 searchPoets(query, limit?): PoetRow[]       // substring name match, ranked by output
-searchByLine(query): Promise<LineHit[]>     // 诗句 search — first-line index → real poems
+searchByLine(query): Promise<LineHit[]>     // 诗句 search — ALL-lines index → real poems
 loadGifts(): Promise<GiftEdge[]>            // 赠诗 edges [fromId,toId,weight] (lazy, cached)
 getManifest(): DataManifest | null          // {n, poetCount, poemCount, buckets, dynCounts}
 ```
-`searchByLine` shards by `fnv32(firstLine)&0xff` (== pipeline `lineBucket`); a `LineHit`
+`searchByLine` now matches **ANY line** (not just openings): the pipeline indexes every line
+into `public/data/lines/{bucket}.json` (256 shards, sharded by `hashStr(line)&0xff` ==
+pipeline `lineBucket`). 疑是地上霜 → 李白《静夜思》 (a non-first line) now resolves. A `LineHit`
 carries `{poetId, poemIdx, title, form, firstLine, poet}` → open the poet & surface `poems[i]`.
 ```ts
 type PoetRow    = { id; name; dynasty; poemCount; clusterSize }
@@ -36,6 +38,14 @@ textBabelIndex(form, hanText): {index, digits} | null
 // ↑ a REAL poem's catalog index (null unless its length matches the form & chars ∈ 字库)
 halfIndex(form, han) / halfIndexAuto(han): HalfIndex | null  // 半编号 of a typed opening
 babelCardinality(form) / regulatedCardinality(form): bigint
+
+// ── 反查 (编号 → 诗): the other direction of the bijection ──
+pullByIndex(form: PullForm, indexStr): IndexPoem | null   // unrank a decimal index back to its poem
+//   IndexPoem = {form, lines, index, digits, inRange, cardinalityDigits}; powers the 编号反查 tab.
+//   inRange=false ⇒ the number is past |catalog| (UI says "共 … 首"). SearchPanel cross-checks the
+//   line index + full text and reports if the number is a REAL existing poem.
+pulledFromIndex(form: PullForm, indexStr): PulledPoem | null  // rebuild a full pull at its canonical
+//   scattered point (for permalink restore) — a shared #p link drops you onto the same star.
 ```
 See [ENGINE_API.md](ENGINE_API.md). **First char = most-significant digit** ⇒ a known
 opening line pins the high-order index (basis for 半编号 prefix search).
@@ -46,7 +56,9 @@ opening line pins the high-order index (basis for 半编号 prefix search).
 poetPosition(p: PoetRow): [x,y,z]   // deterministic galaxy position (dynasty shell + hash)
 ```
 Used to place a star, a label, or a fly-to target. Dynasty layout/colour come from
-`src/data/dynasties.ts` (`DYNASTIES`, `bandRadius`, `DYNASTY_BY_KEY`).
+`src/data/dynasties.ts` (`DYNASTIES`, `bandRadius`, `DYNASTY_BY_KEY`). Famous poets in
+`src/data/famousPoets.ts` (`FAMOUS_POETS`, now incl. modern names) drive **landmark emphasis** —
+those stars render at 2.4× size with a gilded glow so the cloud has named anchors.
 
 ## 4. UI state — `src/state/store.ts` (zustand)
 
@@ -60,7 +72,8 @@ Used to place a star, a label, or a fly-to target. Dynasty layout/colour come fr
 | `hoverPoetId` | poet under cursor (shows a label) |
 | `speed` | camera speed multiplier (HUD readout) |
 | `flyTarget` | `[x,y,z]` the camera tweens toward, then auto-clears |
-| `pulls` | recent void-pull markers (`PulledStars`) |
+| `pulls` | recent void-pull markers (`PulledStars`); each `Pull` now has a stable `id` so markers animate their own birth/death. `MAX_PULLS=24`, `PulledStars` caps ALIVE at 20 |
+| `quality` | render quality `"high" \| "low"` (`toggleQuality`) — `low` halves galaxy counts (~166k→~59k) + disables bloom, for weak GPUs |
 
 Transient camera transform lives in `FlyControls` refs, NOT the store (no 60fps re-renders).
 
@@ -87,10 +100,26 @@ Transient camera transform lives in `FlyControls` refs, NOT the store (no 60fps 
 - **Picking**: screen-space + apparent-size gate (`FlyControls.screenPick`) — only a visibly
   bright star under the cursor selects a poet; everything else → random void poem. Names show
   only on hover/select (no persistent labels).
-- **Galaxy**: `three/galaxyParams.ts` (BRANCHES/TWIST/ARM_SPREAD) shared by `Galaxy` (backdrop:
-  Bruno-Simon arms + bulge + 3-stop colour + differential-rotation shader) and `PoetStars`
-  (poets winds onto the same arms; radius still = dynasty). Headless preview can't capture the
-  dense additive galaxy — verify density/brightness/framing on a real GPU.
+- **Galaxy** (`three/Galaxy.tsx`, `three/galaxyParams.ts` BRANCHES/TWIST/ARM_SPREAD): a real-ish
+  spiral — ~166k particles (high quality) in 3 populations: DUST + arm STARS + a dense particle
+  BULGE (replaced the old hard glow-sprite → smooth core). Exponential-disk radius; value-noise
+  clumping + dust gaps; HII knots; warm-core→blue-arm colour; Gaussian point falloff `exp(-4.5d²)`
+  (not the old `pow(s,3.5)`). Bloom via **UnrealBloom** (`@react-three/postprocessing` v2.19 — NEW
+  dependency). `PoetStars` (`three/PoetStars.tsx::poetPosition`) winds poets onto the SAME 4 spiral
+  arms as the backdrop (`armDev ×0.45`), so colour is a gradient ALONG the arms (not concentric
+  dynasty rings); a Gaussian radial spread blends dynasty colours and a Gaussian Y-thickness swells
+  toward the centre. Headless preview can't capture the dense additive galaxy — verify
+  density/brightness/framing on a real GPU.
+- **画质 toggle**: HUD 画质·高/低 (`store.quality`, `toggleQuality`). `low` halves the galaxy
+  particle counts (~166k→~59k) and disables bloom in `App.tsx` — for weak GPUs.
+- **Void-pull markers** (`three/PulledStars.tsx`, full rewrite): small twinkling captured-light
+  spots (not giant balls), each with a `Pull.id`; lifecycle = fade-in, cap 20 ALIVE (oldest
+  flickers out + self-destructs), distance-cull. A void click glide-focuses the camera
+  (`FlyControls` fly-to is now camera-relative). `MAX_PULLS=24`.
+- **赠诗 arcs** (`three/GiftLines.tsx`): cubic Bézier with control points pulled toward galaxy
+  centre → bundled flows (poor-man's hierarchical edge bundling, `BUNDLE=0.3`); a custom shader
+  sends a soft pulse along each arc giver→receiver (flow direction); endpoints fade. Ambient shows
+  weight≥3; selecting a poet draws a clean ego-network.
 
 - **格律 is REAL** (done): `pipeline/build-lexicon.mjs` → `public/data/lexicon.json` (平水韵
   via charlesix59, MIT + pinyin-pro tail) → `load.ts` `hydrateLexicon` → real Lexicon;
@@ -98,9 +127,22 @@ Transient camera transform lives in `FlyControls` refs, NOT the store (no 60fps 
   `engineApi.commonLexicon(K)` → tone-valid poems in common chars.
 - **自由格式 / 词** (done): a 5th `PullForm="ziyou"` over a radix-(N+W) catalog — see
   ENGINE_API.md. HUD 自由 button; PoemPanel shows 自由目录编号 (no 格律 row); composes with 常用字.
-- **诗句 content search** (done): `SearchPanel` 诗人/诗句 tabs. 诗句 → `searchByLine` (真实诗人,
-  highlighted in PoetPanel via `store.poetFocus`) + `halfIndexAuto` (半编号, always-on, no data).
-- **赠诗 network** (done): `three/GiftLines` (LineSegments from `loadGifts`), HUD 赠诗 toggle,
-  `store.showGifts`; selecting a poet lights up their edges, others dim. Lines are 1px (WebGL).
-- **Still TODO**: polish (GPU-pick at scale, bloom, per-poet fetch, thicker 赠诗 lines via
-  `Line2`); prod brotli + deploy; optional whole-poem/all-lines search index.
+- **诗句 content search** (done): `SearchPanel` 诗人/诗句/编号反查 tabs. 诗句 → `searchByLine`
+  (now matches ANY line, 真实诗人 highlighted in PoetPanel via `store.poetFocus`) + `halfIndexAuto`
+  (半编号, always-on, no data).
+- **编号反查 reverse search** (done): 3rd search tab. `engineApi.pullByIndex(form, indexStr)` unranks
+  a pasted number back to its poem; full untruncated numbers everywhere + copy buttons
+  (`src/ui/CopyButton.tsx`). Loop closure: it checks the line index + full text and reports if the
+  number is a REAL existing poem.
+- **Permalinks** (done): `src/state/permalink.ts` — `#a=<poetId>` / `#p=<form>.<index>`; `ShareButton`
+  (🔗 分享, in `CopyButton.tsx`) in the poem + poet panels; `engineApi.pulledFromIndex` rebuilds a
+  poem from a link; `App` restores the selection on load (`applyHash`) and keeps the hash in sync.
+- **赠诗 network** (done): `three/GiftLines` (curved/bundled Bézier arcs from `loadGifts`), HUD 赠诗
+  toggle, `store.showGifts`; selecting a poet lights up their ego-network, others dim.
+- **Product-grade poem UI** (done): `--serif` (Kaiti/Songti stack) for poem text; gradient cards +
+  gold accent.
+- **Modern 新诗** (done): yuxqiu/modern-poetry contemporary set imported (+4,494 free-verse poems /
+  +508 poets — 徐志摩《再别康桥》, 海子, 北岛, 顾城, 戴望舒…). Free verse → form `"other"`; their lines
+  are searchable.
+- **Still TODO**: deploy (static + brotli); GPU-pick at scale; per-poet poem fetch; thicker 赠诗
+  lines via `Line2`; 无名氏 collapse; modern-poet dynasty refinement (date table).

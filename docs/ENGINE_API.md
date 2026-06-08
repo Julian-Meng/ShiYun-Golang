@@ -53,6 +53,9 @@ pullByIndex(form: PullForm, indexStr): IndexPoem | null   // 反查: 编号 → 
 // other direction). babelUnrank/freeUnrank the decimal index back into the poem at that catalog
 // position. {lines, inRange, ...}. The displayed 全集编号 is babelRank itself (a true 正序 rank,
 // first char = MSB), so pullByIndex(form, poemIndex) reproduces the exact poem — 诗 ⇄ 编号.
+pulledFromIndex(form: PullForm, indexStr): PulledPoem | null  // ↑ but returns a full PulledPoem
+// placed at the canonical scattered point — used to REBUILD a shared #p=<form>.<index> permalink
+// (state/permalink.ts) and drop the camera onto the same star.
 interface HalfIndex { form; index; digits; locked; freeChars; total }
 // `index` = the high-order address the opening pins (prefix padded with char-id 0); the real
 // poem's full 全集编号 starts with these same high-order digits. `freeChars` low positions stay

@@ -14,18 +14,20 @@ The app loads these static assets, builds a `PoetryDataset`, and calls
 | `manifest.json` | initial | 1 KB | `Manifest` | versions, shard map, dynasty keys present |
 | `charset.json` | initial | ~25 KB | `CharsetAsset` | 字库, ordered by freq; index = base-N digit |
 | `lexicon.json` | initial | ~80–120 KB | `LexiconAsset` | tone + 平水韵 tables → `hydrateLexicon()` |
-| `poets.index.json` | initial | ~0.9–1.1 MB | `PoetIndexEntry[]` | ~30–40k poets (all dynasties) |
-| `gifts.json` | initial | ~40 KB | `GiftsAsset` | 赠诗 edges `[fromId,toId,w]`; **tracked** (small) |
+| `poets.index.json` | initial | ~0.9–1.1 MB | `PoetIndexEntry[]` | 29,808 poets (all dynasties, incl. 新诗) |
+| `gifts.json` | initial | ~126 KB | `GiftsAsset` | 赠诗 edges `[fromId,toId,w]` (4,849); **tracked** (small) |
 | `dynasties.json` | initial | <1 KB | (see DYNASTIES) | optional; mirrors `src/data/dynasties.ts` |
 | `stars/{shard}.json` | lazy/region | ~20–60 KB ea | `StarShard` | histograms + sample refs |
-| `poems/{shard}.json` | lazy/poet | ~20–60 KB ea | `PoemShard` | real poem text (git-ignored) |
-| `firstline/{shard}.json` | lazy/search | ~20–60 KB ea | `FirstLineShard` | first-line → poem refs; 256 buckets by `fnv32(firstLine)&0xff` (git-ignored) |
+| `poems/{shard}.json` | lazy/poet | ~20–60 KB ea | `PoemShard` | real poem text (git-ignored, ~235 MB) |
+| `lines/{shard}.json` | lazy/search | ~20–60 KB ea | `FirstLineShard` | **every** line → poem refs; 256 buckets by `fnv32(line)&0xff` (git-ignored, ~791 MB) |
 
-**Content-search bucketing invariant:** the pipeline's `lineBucket(s) = (fnv32(s)&0xff)` and the
-frontend's `lineBucket(s) = (hashStr(s)&0xff)` (`src/data/dynasties.ts::hashStr`) are the SAME
-FNV-1a-32, so `searchByLine` loads the shard the pipeline wrote the line into. `FirstLineRef.i`
-indexes the poet's `poems[]` array in the **same order** the poems shard was written, so a hit
-resolves to `poems[poetId][i]`. **赠诗 edges** connect two corpus poets; a bare-name match must
+**Content-search bucketing invariant:** the pipeline now indexes **every** line (not just openings),
+so any interior line is searchable — 疑是地上霜 → 李白《静夜思》 resolves even though it isn't the
+first line. The pipeline's `lineBucket(s) = (fnv32(s)&0xff)` and the frontend's
+`lineBucket(s) = (hashStr(s)&0xff)` (`src/data/dynasties.ts::hashStr`) are the SAME FNV-1a-32, so
+`searchByLine` loads the shard the pipeline wrote the line into. `FirstLineRef.i` indexes the poet's
+`poems[]` array in the **same order** the poems shard was written, so a hit resolves to
+`poems[poetId][i]`. **赠诗 edges** connect two corpus poets; a bare-name match must
 be **same-dynasty** (precision), while a curated 号/字 **alias** (晦庵→朱熹…) may resolve a famous
 reference across dynasties (the ~9% cross-dynasty edges = genuine homage, e.g. a 清人 和东坡).
 
@@ -38,15 +40,19 @@ bytes) — see `src/data/dynasties.ts` (`bandRadius`, `hashStr`, `spherePoint`).
 
 ## Corpus (all dynasties)
 
-Locked source (verified 2026-06-08):
+Locked sources (verified 2026-06-08). Combined: **857,877 poems / 29,808 poets** (字库 N = 12,877).
 
-- **Backbone — [`Werneror/Poetry`](https://github.com/Werneror/Poetry)** — 853,385 poems /
-  29,377 authors, **先秦 → 当代**, MIT, CSV, columns `题目, 朝代, 作者, 内容`, **Simplified**,
+- **Backbone — [`Werneror/Poetry`](https://github.com/Werneror/Poetry)** — ~853k poems /
+  ~29.3k authors, **先秦 → 当代**, MIT, CSV, columns `题目, 朝代, 作者, 内容`, **Simplified**,
   split by dynasty. The only large open corpus covering the full sweep. Author = string only;
   **no structured 生卒 dates**; dynasty is per-poem (`朝代`).
 - **Quality overlay (唐宋) — [`chinese-poetry`](https://github.com/chinese-poetry/chinese-poetry)**
   — Traditional 唐/宋 text (`{author,title,paragraphs[],id}`), used where it overlaps
   Werneror's 唐/宋 rows (cleaner 繁体, better line segmentation).
+- **新诗 (现当代自由诗) — [`yuxqiu/modern-poetry`](https://github.com/yuxqiu/modern-poetry)**
+  — Apache-2.0, cloned to `C:/corpus/modern-poetry`; **+4,494 free-verse poems / +508 poets**
+  (徐志摩《再别康桥》, 海子, 北岛, 顾城, 戴望舒…). `{author,title,paragraphs[]}`; free verse → form
+  `other`; 民国 poets → **近现代** else **当代**. Their lines join the all-lines search index.
 
 Per-poet record `{name, dynasty, poemCount}` = `GROUP BY 作者, 朝代`. Dates need an external
 Wikidata join (out of scope for v1).

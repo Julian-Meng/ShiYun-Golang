@@ -120,6 +120,7 @@ export function FlyControls() {
             commonK: s.commonOnly ? COMMON_K : undefined,
           }),
         );
+        s.setFlyTarget([pt.x, pt.y, pt.z]); // glide-focus on the captured void point
       }
     };
     const onWheel = (e: WheelEvent) => {
@@ -149,7 +150,11 @@ export function FlyControls() {
     const flyTarget = useStore.getState().flyTarget;
     if (flyTarget) {
       const tv = new THREE.Vector3(...flyTarget);
-      const desired = tv.clone().add(new THREE.Vector3(0, 90, 340));
+      // approach from the camera's CURRENT side (no jarring swing): pull back along target→camera
+      const back = new THREE.Vector3().subVectors(camera.position, tv);
+      if (back.lengthSq() < 1) back.set(0, 0, 1);
+      back.normalize();
+      const desired = tv.clone().addScaledVector(back, 320).add(new THREE.Vector3(0, 70, 0));
       const k = 1 - Math.pow(0.0015, dt);
       camera.position.lerp(desired, k);
       const m = new THREE.Matrix4().lookAt(camera.position, tv, tmpUp.current);

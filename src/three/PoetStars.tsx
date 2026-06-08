@@ -2,27 +2,42 @@ import * as THREE from "three";
 import { useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
-import { DYNASTY_BY_KEY, DYNASTIES, DYNASTY_COUNT, bandRadius, hashStr } from "../data/dynasties";
+import { DYNASTY_BY_KEY, DYNASTIES, DYNASTY_COUNT, bandRadius, hashStr, R_MIN, R_MAX } from "../data/dynasties";
 import { getPoets, type PoetRow } from "../data/load";
+import { FAMOUS_POETS } from "../data/famousPoets";
 import { useStore } from "../state/store";
 import { pickTargets } from "./picking";
 import { GALAXY, gauss3 } from "./galaxyParams";
 
-// Deterministic galaxy position: radius = dynasty shell (time = depth), angle biased
-// onto the spiral arms so the poet layer winds into the same galaxy as the backdrop.
+// Iconic poets → brighter + larger landmark stars (a sense of "明星" distinction).
+const FAMOUS = new Set(FAMOUS_POETS.map((f) => f.name));
+const WHITE = new THREE.Color("#ffffff");
+
+// Deterministic galaxy position. Mean radius = dynasty shell (time = depth) but with a GAUSSIAN
+// radial spread that BLEEDS into neighbouring dynasty bands, so the colours blend into a gradient
+// instead of hard concentric rings; angle is biased onto the spiral arms (same arms as the
+// backdrop). Y uses a thicker gaussian that swells toward the centre (bulge) for visual depth.
 export function poetPosition(p: PoetRow): [number, number, number] {
   const dyn = DYNASTY_BY_KEY[p.dynasty] ?? DYNASTIES[DYNASTY_COUNT - 1];
   const [inner, outer] = bandRadius(dyn.id);
   const h = hashStr(p.id + p.name);
-  const rr = inner + ((h % 997) / 997) * (outer - inner);
+  const center = (inner + outer) / 2;
+  const width = outer - inner;
+  const ra = ((h >>> 2) & 0xff) / 255, rb = ((h >>> 10) & 0xff) / 255, rc = ((h >>> 18) & 0xff) / 255;
+  let rr = center + gauss3(ra, rb, rc) * width * 1.5; // σ ≈ 1 band → adjacent dynasty colours blend
+  rr = Math.max(R_MIN * 0.35, Math.min(R_MAX * 1.06, rr));
   const t = rr / GALAXY.RADIUS;
   const branch = ((h % GALAXY.BRANCHES) / GALAXY.BRANCHES) * Math.PI * 2;
   const twist = t * GALAXY.TWIST;
   const a = ((h >>> 3) & 0xff) / 255, b = ((h >>> 11) & 0xff) / 255, cc = ((h >>> 19) & 0xff) / 255;
-  const armDev = gauss3(a, b, cc) * GALAXY.ARM_SPREAD;
+  // tight arm σ → poets concentrate ONTO the same 4 spiral arms as the backdrop (woven in,
+  // not a separate ring layer); the dynasty colour then reads as a gradient ALONG the arms.
+  const armDev = gauss3(a, b, cc) * GALAXY.ARM_SPREAD * 0.45;
   const ang = branch + twist + armDev;
-  const yj = ((h >>> 24) & 0xff) / 255 - 0.5;
-  return [Math.cos(ang) * rr, yj * rr * GALAXY.THICKNESS * 1.4, Math.sin(ang) * rr];
+  const ya = ((h >>> 5) & 0xff) / 255, yb = ((h >>> 13) & 0xff) / 255, yc = ((h >>> 21) & 0xff) / 255;
+  const bulge = 1 + Math.max(0, 0.45 - t) * 2.6; // taller near the centre, thin at the rim
+  const y = gauss3(ya, yb, yc) * rr * GALAXY.THICKNESS * 2.1 * bulge;
+  return [Math.cos(ang) * rr, y, Math.sin(ang) * rr];
 }
 
 export function PoetStars() {
@@ -48,11 +63,13 @@ export function PoetStars() {
       pos[i * 3] = x;
       pos[i * 3 + 1] = y;
       pos[i * 3 + 2] = z;
+      const fam = FAMOUS.has(p.name);
       tmp.set(dyn.color);
+      if (fam) tmp.lerp(WHITE, 0.22).multiplyScalar(1.8); // brighter, slightly gilded landmark
       col[i * 3] = tmp.r;
       col[i * 3 + 1] = tmp.g;
       col[i * 3 + 2] = tmp.b;
-      const s = 1.4 + p.clusterSize * 0.32;
+      const s = (1.4 + p.clusterSize * 0.32) * (fam ? 2.4 : 1);
       size[i] = s;
       baseSize[i] = s;
       seed[i] = (hashStr(p.id) & 0xffff) / 0xffff;

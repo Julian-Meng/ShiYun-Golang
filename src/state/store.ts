@@ -4,6 +4,7 @@ import type { PoetRow, PoemRecord } from "../data/load";
 import { DYNASTIES } from "../data/dynasties";
 
 export interface Pull {
+  id: number; // stable identity so PulledStars can track per-marker birth/death animation
   pos: [number, number, number];
   valid: boolean;
 }
@@ -49,8 +50,9 @@ interface State {
   setFlyTarget: (t: [number, number, number] | null) => void;
 }
 
-const MAX_PULLS = 60;
+const MAX_PULLS = 24; // small buffer; PulledStars caps the ALIVE markers at 20 + animates removal
 const ALL_KEYS = DYNASTIES.map((d) => d.key);
+let _pullSeq = 0;
 
 export const useStore = create<State>((set) => ({
   loaded: false,
@@ -86,7 +88,7 @@ export const useStore = create<State>((set) => ({
       selectedPoet: null,
       poetPoems: null,
       poetFocus: null,
-      pulls: [...s.pulls, { pos: p.pos, valid: p.valid }].slice(-MAX_PULLS),
+      pulls: [...s.pulls, { id: _pullSeq++, pos: p.pos, valid: p.valid }].slice(-MAX_PULLS),
     })),
   clearSelection: () => set({ selected: null }),
   setHover: (hoverPoetId) => set({ hoverPoetId }),

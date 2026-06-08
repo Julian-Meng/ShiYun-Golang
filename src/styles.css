@@ -1,8 +1,12 @@
 :root {
   --ink: #04050a;
   --gold: #ffd27a;
+  --gold-soft: #f6dca6;
   --fg: #e8ecf4;
   --muted: #8b93a7;
+  /* elegant 楷/宋 stack for poem text (product-grade typography) */
+  --serif: "Kaiti SC", "STKaiti", KaiTi, "楷体", "Source Han Serif SC", "Noto Serif SC",
+    "Songti SC", STSong, SimSun, serif;
   font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
 }
 
@@ -234,16 +238,29 @@ canvas {
   right: 24px;
   top: 50%;
   transform: translateY(-50%);
-  width: 320px;
-  max-height: 80vh;
+  width: 340px;
+  max-height: 82vh;
   overflow: auto;
-  background: rgba(8, 10, 18, 0.82);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  padding: 22px;
-  animation: rise 0.28s ease;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 210, 122, 0.07), transparent 60%),
+    linear-gradient(180deg, rgba(14, 16, 26, 0.94), rgba(7, 8, 15, 0.92));
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 210, 122, 0.18);
+  border-radius: 16px;
+  padding: 26px 24px 22px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: rise 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
   z-index: 25;
+}
+.poem-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 22%;
+  right: 22%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.55;
 }
 @keyframes rise {
   from {
@@ -263,15 +280,28 @@ canvas {
   line-height: 1;
 }
 .poem-body {
-  font-size: 24px;
-  line-height: 1.9;
-  letter-spacing: 0.16em;
+  font-family: var(--serif);
+  font-size: 25px;
+  line-height: 2.05;
+  letter-spacing: 0.18em;
   text-align: center;
-  margin: 6px 0 18px;
-  color: #f4f1e8;
+  margin: 4px 0 20px;
+  color: #f6f2e6;
+  text-shadow: 0 1px 18px rgba(255, 210, 122, 0.12);
 }
 .poem-line {
   white-space: nowrap;
+  position: relative;
+}
+/* a faint gold rule under the poem, like an ink underscore */
+.poem-body::after {
+  content: "";
+  display: block;
+  width: 38px;
+  height: 1px;
+  margin: 14px auto 0;
+  background: linear-gradient(90deg, transparent, var(--gold-soft), transparent);
+  opacity: 0.5;
 }
 .poem-meta {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -560,11 +590,14 @@ canvas {
   padding: 4px 14px 8px;
 }
 .rev-poem .poem-body {
-  font-size: 19px;
-  line-height: 1.75;
-  color: #f3efe4;
-  letter-spacing: 0.1em;
-  margin-bottom: 6px;
+  font-family: var(--serif);
+  font-size: 21px;
+  line-height: 1.95;
+  letter-spacing: 0.14em;
+  text-align: center;
+  color: #f6f2e6;
+  margin-bottom: 8px;
+  text-shadow: 0 1px 14px rgba(255, 210, 122, 0.12);
 }
 
 /* poet panel */
@@ -573,16 +606,19 @@ canvas {
   right: 24px;
   top: 50%;
   transform: translateY(-50%);
-  width: 340px;
-  max-height: 82vh;
+  width: 348px;
+  max-height: 84vh;
   overflow: auto;
-  background: rgba(8, 10, 18, 0.85);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  padding: 20px;
+  background:
+    radial-gradient(120% 50% at 50% 0%, rgba(255, 210, 122, 0.06), transparent 60%),
+    linear-gradient(180deg, rgba(14, 16, 26, 0.95), rgba(7, 8, 15, 0.93));
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 210, 122, 0.16);
+  border-radius: 16px;
+  padding: 24px 22px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   z-index: 25;
-  animation: rise 0.28s ease;
+  animation: rise 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .poet-head {
   display: flex;
@@ -591,9 +627,11 @@ canvas {
   margin-bottom: 12px;
 }
 .poet-name {
-  font-size: 26px;
+  font-family: var(--serif);
+  font-size: 28px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 16px rgba(255, 210, 122, 0.18);
 }
 .poet-sub {
   font-size: 12px;
@@ -645,10 +683,11 @@ canvas {
   margin-left: 4px;
 }
 .pi-body {
-  font-size: 15px;
-  line-height: 1.7;
+  font-family: var(--serif);
+  font-size: 16.5px;
+  line-height: 1.85;
   color: #f1ede2;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 .pi-idx {
   font-family: ui-monospace, Menlo, monospace;

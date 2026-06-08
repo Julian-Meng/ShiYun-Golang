@@ -3,7 +3,7 @@ import { DYNASTY_BY_KEY } from "../data/dynasties";
 import { textBabelIndex } from "../engine/engineApi";
 import type { FormId } from "../engine/engine";
 import type { PoemRecord } from "../data/load";
-import { CopyButton } from "./CopyButton";
+import { CopyButton, ShareButton } from "./CopyButton";
 
 const FORM_LABEL: Record<string, string> = {
   wujue: "五绝",
@@ -44,7 +44,7 @@ export function PoetPanel() {
           {poet.name}
         </span>
         <span className="poet-sub">
-          {dyn?.label ?? poet.dynasty} · {poet.poemCount} 首真实作品
+          {dyn?.label ?? poet.dynasty} · {poet.poemCount} 首真实作品 <ShareButton />
         </span>
       </div>
       {poems === null ? (

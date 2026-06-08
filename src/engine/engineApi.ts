@@ -329,3 +329,26 @@ export function pullByIndex(formId: PullForm, indexInput: string): IndexPoem | n
   const lines = inRange ? toLines(form, babelUnrank(form.L, N(), b)) : [];
   return { form: formId, lines, index: idx, digits: idx.length, inRange, cardinalityDigits: size.toString().length };
 }
+
+// Rebuild a full PulledPoem from a known index (for permalink restore). Places it at the
+// canonical scattered point so a shared link drops you onto the same star.
+export function pulledFromIndex(formId: PullForm, indexStr: string): PulledPoem | null {
+  const digitsOnly = (indexStr || "").replace(/[^0-9]/g, "");
+  if (!digitsOnly) return null;
+  let b: bigint;
+  try {
+    b = BigInt(digitsOnly);
+  } catch {
+    return null;
+  }
+  if (formId === "ziyou") {
+    const fullN = getDataset().lexicon.N;
+    if (b >= freeSize(fullN)) return null;
+    const p = indexToPoint(b);
+    return describeFree(fullN, freeUnrank(fullN, b), [p.x, p.y, p.z]);
+  }
+  const form = FORMS[formId];
+  if (b >= babelSize(form.L, N())) return null;
+  const p = pointForBabelIndex(formId, b);
+  return describe(form, babelUnrank(form.L, N(), b), [p.x, p.y, p.z]);
+}

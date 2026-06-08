@@ -12,17 +12,29 @@ import { PoetPanel } from "./ui/PoetPanel";
 import { SearchPanel } from "./ui/SearchPanel";
 import { DynastyLegend } from "./ui/DynastyLegend";
 import { useStore } from "./state/store";
+import { applyHash, syncHash } from "./state/permalink";
 import { loadData } from "./data/load";
 
 export default function App() {
   const loaded = useStore((s) => s.loaded);
   const setLoaded = useStore((s) => s.setLoaded);
+  const quality = useStore((s) => s.quality);
+  const selected = useStore((s) => s.selected);
+  const selectedPoet = useStore((s) => s.selectedPoet);
 
   useEffect(() => {
     loadData()
-      .then(() => setLoaded(true))
+      .then(() => {
+        setLoaded(true);
+        applyHash(); // restore a shared #a=poet / #p=poem link
+      })
       .catch((e) => console.error("数据载入失败", e));
   }, [setLoaded]);
+
+  // keep the address bar shareable as the selection changes
+  useEffect(() => {
+    if (loaded) syncHash();
+  }, [loaded, selected, selectedPoet]);
 
   return (
     <div className="app">
@@ -40,16 +52,19 @@ export default function App() {
         <PulledStars />
         <FlyControls />
         {/* HDR additive bloom — turns discrete bright particles into continuous nebulosity and
-            makes the core glow fade smoothly (the single biggest "real galaxy" cue). */}
-        <EffectComposer>
-          <Bloom
-            intensity={0.85}
-            luminanceThreshold={0.12}
-            luminanceSmoothing={0.32}
-            radius={0.7}
-            mipmapBlur
-          />
-        </EffectComposer>
+            makes the core glow fade smoothly (the single biggest "real galaxy" cue). Disabled on
+            low quality (it's the heaviest pass) for weak GPUs. */}
+        {quality === "high" && (
+          <EffectComposer>
+            <Bloom
+              intensity={0.85}
+              luminanceThreshold={0.12}
+              luminanceSmoothing={0.32}
+              radius={0.7}
+              mipmapBlur
+            />
+          </EffectComposer>
+        )}
       </Canvas>
 
       <div className="crosshair" />

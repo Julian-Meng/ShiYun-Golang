@@ -26,9 +26,11 @@ export function SearchPanel() {
   const [revForm, setRevForm] = useState<PullForm>("wujue");
   const [idxInput, setIdxInput] = useState("");
   const [rev, setRev] = useState<IndexPoem | null>(null);
+  const [revReal, setRevReal] = useState<{ name: string; title: string } | null>(null);
   const selectPoet = useStore((s) => s.selectPoet);
   const setFlyTarget = useStore((s) => s.setFlyTarget);
   const reqRef = useRef(0);
+  const revReqRef = useRef(0);
 
   function onChangePoet(v: string) {
     setQ(v);
@@ -42,13 +44,32 @@ export function SearchPanel() {
       if (reqRef.current === token) setHits(h);
     });
   }
+  // unrank the index → poem, then check (async) whether it happens to be a REAL poem (loop closure)
+  function runReverse(form: PullForm, v: string) {
+    const r = pullByIndex(form, v);
+    setRev(r);
+    setRevReal(null);
+    if (r?.inRange && form !== "ziyou" && r.lines.length) {
+      const token = ++revReqRef.current;
+      const text = r.lines.join("");
+      searchByLine(r.lines[0]).then(async (hits) => {
+        for (const h of hits.slice(0, 6)) {
+          const poems = await loadPoetPoems(h.poetId);
+          if (poems[h.poemIdx]?.p.join("") === text) {
+            if (revReqRef.current === token) setRevReal({ name: h.poet?.name ?? "佚名", title: h.title || "无题" });
+            return;
+          }
+        }
+      });
+    }
+  }
   function onChangeIndex(v: string) {
     setIdxInput(v);
-    setRev(pullByIndex(revForm, v));
+    runReverse(revForm, v);
   }
   function pickRevForm(f: PullForm) {
     setRevForm(f);
-    if (idxInput) setRev(pullByIndex(f, idxInput));
+    if (idxInput) runReverse(f, idxInput);
   }
 
   function goPoet(p: PoetRow, focus?: { poemIdx: number; title: string; firstLine: string }) {
@@ -70,6 +91,7 @@ export function SearchPanel() {
     setHalf(null);
     setIdxInput("");
     setRev(null);
+    setRevReal(null);
   }
 
   return (
@@ -184,6 +206,11 @@ export function SearchPanel() {
                       </div>
                     ))}
                   </div>
+                  {revReal && (
+                    <div className="rev-real">
+                      🎯 这串编号正好对应一首真实存在的诗：{revReal.name}《{revReal.title}》
+                    </div>
+                  )}
                   <div className="half-note dim">
                     这是《{FORM_LABEL[rev.form]}》全集目录里正序第 {rev.digits} 位长的那一号 —— 同一个编号永远算出同一首诗。
                   </div>

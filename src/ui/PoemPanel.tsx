@@ -1,5 +1,5 @@
 import { useStore } from "../state/store";
-import { CopyButton } from "./CopyButton";
+import { CopyButton, ShareButton } from "./CopyButton";
 
 const FORM_LABEL: Record<string, string> = {
   wujue: "五言绝句",
@@ -62,6 +62,9 @@ export function PoemPanel() {
         {isFree
           ? `换行也写进了编号里 —— 这 ${selected.babelDigits} 位地址既定了字，也定了断句。`
           : `这首诗一直在诗云里，编号 ${selected.babelDigits} 位长 —— 地址几乎和诗本身一样长。`}
+        <div className="poem-share">
+          <ShareButton />
+        </div>
       </div>
     </div>
   );

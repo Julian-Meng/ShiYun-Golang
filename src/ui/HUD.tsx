@@ -19,6 +19,8 @@ export function HUD() {
   const toggleLushi = useStore((s) => s.toggleLushi);
   const showGifts = useStore((s) => s.showGifts);
   const toggleGifts = useStore((s) => s.toggleGifts);
+  const quality = useStore((s) => s.quality);
+  const toggleQuality = useStore((s) => s.toggleQuality);
   const speed = useStore((s) => s.speed);
   const loaded = useStore((s) => s.loaded);
   const m = getManifest();
@@ -63,6 +65,13 @@ export function HUD() {
           title="显示诗人之间的赠答网络（寄/赠/和/次韵），选中诗人可高亮其往来"
         >
           赠诗
+        </button>
+        <button
+          className="filter"
+          onClick={toggleQuality}
+          title="画质：高=16万粒子+辉光；低=更少粒子、关闭辉光（弱显卡更流畅）"
+        >
+          {quality === "high" ? "画质·高" : "画质·低"}
         </button>
         {loaded && m && (
           <div className="stat">

@@ -28,6 +28,8 @@ interface State {
   poetFocus: { poemIdx: number; title: string; firstLine: string } | null; // poem to surface (诗句 search)
   // 赠诗 network
   showGifts: boolean;
+  // render quality (scales galaxy particle counts + bloom for weak GPUs)
+  quality: "high" | "low";
   // camera
   speed: number; // multiplier
   flyTarget: [number, number, number] | null;
@@ -46,6 +48,7 @@ interface State {
   setPoetPoems: (id: string, poems: PoemRecord[]) => void;
   clearPoet: () => void;
   toggleGifts: () => void;
+  toggleQuality: () => void;
   setSpeed: (s: number) => void;
   setFlyTarget: (t: [number, number, number] | null) => void;
 }
@@ -67,6 +70,7 @@ export const useStore = create<State>((set) => ({
   poetPoems: null,
   poetFocus: null,
   showGifts: false,
+  quality: "high",
   speed: 1,
   flyTarget: null,
 
@@ -98,6 +102,7 @@ export const useStore = create<State>((set) => ({
     set((s) => (s.selectedPoet?.id === id ? { poetPoems: poems } : {})),
   clearPoet: () => set({ selectedPoet: null, poetPoems: null, poetFocus: null }),
   toggleGifts: () => set((s) => ({ showGifts: !s.showGifts })),
+  toggleQuality: () => set((s) => ({ quality: s.quality === "high" ? "low" : "high" })),
   setSpeed: (speed) => set({ speed }),
   setFlyTarget: (flyTarget) => set({ flyTarget }),
 }));

@@ -1,6 +1,7 @@
 import * as THREE from "three";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
+import { useStore } from "../state/store";
 import { GALAXY, gauss3 } from "./galaxyParams";
 
 function mulberry32(seed: number) {
@@ -33,11 +34,6 @@ function vnoise(x: number, z: number): number {
 //   • STARS — fewer, larger, brighter resolved stars on the arms (with sparse pink HII knots).
 //   • BULGE — a dense particle cloud on a steep exponential radius, so the bright core accumulates
 //             SMOOTHLY from additive overlap (no hard glow-sprite → no abrupt white blob).
-const DUST = 90000;
-const STARS = 34000;
-const BULGE = 42000;
-const TOTAL = DUST + STARS + BULGE;
-
 const cCore = new THREE.Color("#fff1d6"); // warm old-star bulge (~4500 K)
 const cInner = new THREE.Color("#fff7ec");
 const cMid = new THREE.Color("#ffffff");
@@ -45,7 +41,13 @@ const cArm = new THREE.Color("#cfe0ff"); // blue-white young arm stars (~9000 K,
 const cHII = new THREE.Color("#ff6d92"); // pink HII regions
 
 export function Galaxy() {
+  const quality = useStore((s) => s.quality);
   const built = useMemo(() => {
+    const hi = quality === "high";
+    const DUST = hi ? 90000 : 30000; // soft dim haze (the nebulosity)
+    const STARS = hi ? 34000 : 13000; // bright arm stars
+    const BULGE = hi ? 42000 : 16000; // dense core cloud
+    const TOTAL = DUST + STARS + BULGE;
     const rnd = mulberry32(31337);
     const R = GALAXY.RADIUS;
     const NF = 4.2 / R; // noise frequency
@@ -210,7 +212,20 @@ export function Galaxy() {
     }
 
     return { grp, mat: m };
-  }, []);
+  }, [quality]);
+
+  // dispose the previous galaxy's geometries/materials when quality rebuilds it
+  useEffect(() => {
+    const grp = built.grp;
+    return () => {
+      grp.traverse((o) => {
+        const mesh = o as THREE.Points;
+        mesh.geometry?.dispose();
+        const mat = mesh.material as THREE.Material | undefined;
+        mat?.dispose();
+      });
+    };
+  }, [built]);
 
   useFrame((_, dt) => {
     built.mat.uniforms.uTime.value += dt;

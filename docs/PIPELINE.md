@@ -51,11 +51,33 @@ mostly Simplified — OpenCC `tw→cn` patches stray Traditional) → for each �
 Result: 平=5708, 仄=7075, all 30 韵部 populated. `load.ts` hydrates it into the real Lexicon.
 Deps: `opencc-js`, `pinyin-pro` (devDeps).
 
+## First-line index + 赠诗 edges (SHIPPED) — same `build-data.mjs`
+
+Two more outputs are emitted in the same pass (manifest `version: 2`):
+
+```
+firstline/{2-hex bucket}.json   {firstLine: [{p:poetId, i:poemIdx, t:title, f:form}]}
+   256 buckets by fnv32(firstLine)&0xff (== frontend hashStr); FL_CAP=12 refs per opening;
+   first lines of length ≥ 2 only. 75 MB total → git-ignored, regenerate locally.
+   Powers the 诗句 tab (load.searchByLine): 床前明月光 → 李白《静夜思》.
+gifts.json                       {version, edgeCount, edges:[[fromId,toId,weight]]}
+   赠诗 dedication network. For each title: find a GIFT_MARKER (寄/赠/和/次韵/酬/答/呈/送…),
+   then the longest KNOWN poet name right after it (3-char preferred, 2-char fallback, minus a
+   stoplist of places/roles). resolveTarget keeps only a SAME-DYNASTY namesake (the precision
+   guard — cross-dynasty matches on a bare 2–3-char string are almost always a place / 字号
+   collision). 4,341 edges / 110 KB → **tracked in git** (network works out of the box).
+```
+
+Iterate on gifts/manifest only (reuse the 306 MB of poems/+firstline/): `SKIP_HEAVY=1 node
+pipeline/build-data.mjs`.
+
 ## Known follow-ups
 
 - **Per-poet poem fetch** (vs per-bucket): a click on 陆游 currently pulls his whole bucket
   (~MB). Re-shard finer or one-file-per-poet to cut egress.
-- **Content search index** for line / whole-poem search (床前明月光 → 静夜思) — needs an
-  inverted/first-line index sharded by leading char, OR accept loading buckets.
+- **Whole-poem / non-opening-line search**: the first-line index only keys *opening* lines.
+  An all-lines inverted index (~4M lines) would let any line be searched (疑是地上霜 → 静夜思).
+- **赠诗 字/号 resolution**: matching is name-only, so 寄元美 (=王世贞) is missed. A 字号→poet
+  table (Wikidata) would raise recall; the same-dynasty guard could then relax.
 - **无名氏 / 佚名** collapse into mega-poets — consider special handling.
 - **prod compression**: add brotli `.br` emit + nginx `brotli_static` before deploy.

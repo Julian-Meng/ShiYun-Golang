@@ -9,7 +9,7 @@ via an index↔poem bijection that is **computed, never stored**.
 > 灵感来自刘慈欣《诗云》与博尔赫斯《巴别图书馆》。诗不被储存——给一个编号就能算出第几首诗,
 > 反之亦然。杰作只是噪声海里的零测度亮点。
 
-![status](https://img.shields.io/badge/engine-34%2F34_green-success) ![status](https://img.shields.io/badge/build-static-blue)
+![status](https://img.shields.io/badge/engine-44%2F44_green-success) ![status](https://img.shields.io/badge/build-static-blue)
 
 ---
 
@@ -18,7 +18,9 @@ via an index↔poem bijection that is **computed, never stored**.
 一张可在其中飞行的三维星图:**每位历史诗人是一团真实星**(他真实写过的诗),星团之间的**虚空是一切可能的近体诗**。点击虚空,就从噪声里 `unrank` 出一首诗,并显示它在"全集目录"里那个长达 82–229 位的编号——地址几乎和诗本身一样长(目录即图书馆)。
 
 - **全朝代**:先秦 → 当代,15 个朝代同心壳,可按朝代筛选(语料以 [Werneror/Poetry](https://github.com/Werneror/Poetry) 全历代为骨,叠加 [chinese-poetry](https://github.com/chinese-poetry/chinese-poetry) 的唐宋繁体)。
-- **四种诗体**:五绝/七绝/五律/七律;**格律开关**:在"合律子目录"里漫游(嵌套于纯随机目录内)。
+- **五种诗体**:五绝/七绝/五律/七律,外加 **自由格式 / 词**(变长断句,换行也由编号决定);**格律开关**:在"合律子目录"里漫游(嵌套于纯随机目录内)。
+- **按诗句搜**:输入一句诗 →「真实诗人」里它属于谁(床前明月光 → 李白《静夜思》),同时给出「纯随机」目录里那个被开头锁定的 **半编号**(诗的全集编号正以这串高位开头)。
+- **赠诗网络**:解析诗题(寄/赠/和/次韵…)连出诗人之间的赠答线,选中一位即高亮其往来。
 - **纯静态**:所有索引运算与渲染都在浏览器,服务器只发静态文件,**永不加后端**。
 
 运行:
@@ -43,8 +45,13 @@ in the "complete catalog" — the address is nearly as long as the poem itself (
 
 - **All dynasties** 先秦→当代, 15 concentric shells, filterable; corpus = Werneror (full
   history) backbone + chinese-poetry traditional 唐宋 overlay.
-- **Four forms** (5/7-char quatrains & regulated verse) + a 格律 toggle that roams only the
+- **Five forms** (5/7-char quatrains & regulated verse) **+ free-verse / 词** (variable line
+  lengths — the line breaks are part of the index too) + a 格律 toggle that roams only the
   valid sub-catalog (nested inside the random one).
+- **Search by line** — type one line: find the real poem it belongs to (床前明月光 → 李白's
+  《静夜思》) *and* the **half-number** its opening pins (the poem's full address starts with it).
+- **Dedication network** — titles (寄/赠/和/次韵…) parsed into poet-to-poet lines; select a
+  poet to light up their correspondents.
 - **Fully static** — all index math + rendering run client-side; the server only serves
   files. No backend, ever.
 

@@ -3,7 +3,10 @@ dist/
 *.log
 .DS_Store
 
-# Generated poem buckets — 231 MB, regenerate with `node pipeline/build-data.mjs`.
-# (charset/poets.index/lexicon/manifest ARE tracked so the galaxy+search+格律 work in a
-#  fresh worktree; only the per-poet poem text needs regenerating.)
+# Generated heavy buckets — regenerate with `node pipeline/build-data.mjs`.
+# (charset/poets.index/lexicon/manifest/gifts ARE tracked so the galaxy + author search +
+#  格律 + 半编号 + 赠诗网络 work in a fresh worktree; only the per-poet poem TEXT and the
+#  first-line content-search index need regenerating.)
+# NOTE: no inline comments below — git treats trailing text as part of the path pattern.
 public/data/poems/
+public/data/firstline/

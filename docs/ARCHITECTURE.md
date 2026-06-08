@@ -84,8 +84,12 @@ npm run typecheck  # tsc --noEmit
   HUD + fly-to + raycast poet/void), `ui/SearchPanel` (author search→fly), `ui/PoetPanel`
   (real poems + indices), `ui/DynastyLegend` (filter). Default = random; 格律 dummy/gated.
   See [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md).
-- **Next** ⏳ line / whole-poem content search (床前明月光→静夜思 + 半编号); 赠诗 network;
-  GPU-pick + bloom polish; per-poet poem fetch; prod brotli + deploy.
+- **Step 5** ✅ three more features SHIPPED (44/44 tests, verified in-browser):
+  **自由格式/词** (5th `PullForm`, radix-(N+W) variable-length catalog — `engine.freeUnrank`);
+  **诗句 content search** (`firstline/` index → 床前明月光→李白《静夜思》, + `engine.prefixIndex`
+  半编号, always-on); **赠诗 network** (`gifts.json` 4,341 same-dynasty edges → `three/GiftLines`).
+- **Next** ⏳ GPU-pick + bloom polish; per-poet poem fetch; thicker 赠诗 lines; prod brotli + deploy;
+  optional whole-poem/all-lines search index; 字号→poet table for richer 赠诗 recall.
 
 > Legacy `three/StarField.tsx` + `three/Landmarks.tsx` are the Step-4a placeholder field,
 > superseded by `PoetStars`/`Galaxy` — kept for reference, not mounted.

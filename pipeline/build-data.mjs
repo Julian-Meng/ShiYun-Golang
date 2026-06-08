@@ -65,18 +65,39 @@ function classifyForm(lines) {
   return f ? f.id : "other";
 }
 
-// fast 32-bit FNV-1a → 8-hex id, bucketed by first 2 hex chars (256 buckets)
-function poetId(name, dyn) {
+// fast 32-bit FNV-1a → uint32
+function fnv32(s) {
   let h = 0x811c9dc5;
-  const s = name + "|" + dyn;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
-  return (h >>> 0).toString(16).padStart(8, "0");
+  return h >>> 0;
 }
+// 8-hex poet id, bucketed by first 2 hex chars (256 buckets)
+const poetId = (name, dyn) => fnv32(name + "|" + dyn).toString(16).padStart(8, "0");
+// 2-hex content bucket (256 shards) for the first-line search index
+const lineBucket = (s) => (fnv32(s) & 0xff).toString(16).padStart(2, "0");
+
+// 赠诗 markers: title verbs that mark a poem dedicated/replying to another poet. The
+// precision guard is that the text AFTER the marker must literally be a known poet NAME
+// (so noisy markers like 和/送 can't fabricate edges from common words). Longest first.
+const GIFT_MARKERS = [
+  "奉和", "奉寄", "奉赠", "奉酬", "次韵", "次韵和", "和答", "酬答", "寄赠",
+  "寄", "赠", "贈", "和", "酬", "答", "呈", "简", "簡", "怀", "懷", "忆", "憶",
+  "送", "别", "別", "示", "谢", "謝", "贺", "賀", "挽", "悼", "哭",
+];
+const HONORIFIC = /^[大老君公侯郎中令丞卿使府监太少卫将军相王爷儿子弟兄翁叟生先]+/;
+// non-person strings that collide with obscure poet names (places / roles / counters).
+const GIFT_STOP = new Set([
+  "钱塘","长安","洛阳","江南","江东","江上","西湖","金陵","扬州","成都","襄阳","山中","城南",
+  "故人","主人","诸公","先生","使君","明府","山人","居士","道士","上人","长老","将军","刺史",
+  "太守","二首","三首","四首","其二","其三","同年","友人","内子","小儿","幼子","门生","座主",
+]);
 
 console.log("reading CSVs from", SRC);
 const files = readdirSync(SRC).filter((f) => f.endsWith(".csv"));
 const freq = new Map(); // char -> count
 const poets = new Map(); // id -> {id,name,dynasty,dynastyRaw,count,poems:[]}
+const firstLines = new Map(); // firstLine -> [{p:poetId, i:poemIdx, t:title, f:form}]  (search index)
+const FL_CAP = 12; // max poems indexed per identical opening (avoid skew on ultra-common lines)
 let total = 0;
 
 for (const file of files) {
@@ -93,8 +114,17 @@ for (const file of files) {
     let p = poets.get(id);
     if (!p) { p = { id, name: author, dynasty: dyn, dynastyRaw: dynRaw, count: 0, poems: [] }; poets.set(id, p); }
     p.count++;
-    p.poems.push({ t: title || "", f: classifyForm(lines), p: lines });
+    const f = classifyForm(lines);
+    const poemIdx = p.poems.length;
+    p.poems.push({ t: title || "", f, p: lines });
     total++;
+    // first-line search index (床前明月光 → this poem). Skip 1-char fragments.
+    const fl = lines[0];
+    if ([...fl].length >= 2) {
+      let arr = firstLines.get(fl);
+      if (!arr) { arr = []; firstLines.set(fl, arr); }
+      if (arr.length < FL_CAP) arr.push({ p: id, i: poemIdx, t: title || "", f });
+    }
   }
   console.log(`  ${file}: poems=${total} poets=${poets.size}`);
 }
@@ -128,16 +158,104 @@ for (const p of poets.values()) {
   if (!obj) { obj = {}; buckets.set(b, obj); }
   obj[p.id] = p.poems;
 }
-for (const [b, obj] of buckets) writeFileSync(join(OUT, "poems", `${b}.json`), JSON.stringify(obj));
+// SKIP_HEAVY=1 reuses already-generated poems/+firstline/ (231+75 MB) to iterate fast on
+// the lightweight gifts.json / manifest only.
+const SKIP_HEAVY = !!process.env.SKIP_HEAVY;
+if (!SKIP_HEAVY)
+  for (const [b, obj] of buckets) writeFileSync(join(OUT, "poems", `${b}.json`), JSON.stringify(obj));
+
+// ── first-line search index: firstline/{2-hex content bucket}.json -> {firstLine: [refs]} ──
+mkdirSync(join(OUT, "firstline"), { recursive: true });
+const flBuckets = new Map();
+for (const [fl, refs] of firstLines) {
+  const b = lineBucket(fl);
+  let obj = flBuckets.get(b);
+  if (!obj) { obj = {}; flBuckets.set(b, obj); }
+  obj[fl] = refs;
+}
+if (!SKIP_HEAVY)
+  for (const [b, obj] of flBuckets) writeFileSync(join(OUT, "firstline", `${b}.json`), JSON.stringify(obj));
+
+// ── 赠诗 network: parse titles for 寄/赠/和/次韵… + a known poet NAME → poet→poet edges ──
+// name -> poets with that name (each {id, dynId, count}); pick target by dynasty proximity.
+const DYN_ORDER = ["xianqin","qinhan","weijin","nanbeichao","sui","tang","wudai","song","liao","jin","yuan","ming","qing","jinxiandai","dangdai"];
+const dynId = (k) => { const i = DYN_ORDER.indexOf(k); return i < 0 ? 99 : i; };
+const byName = new Map();
+for (const p of poets.values()) {
+  let a = byName.get(p.name);
+  if (!a) { a = []; byName.set(p.name, a); }
+  a.push({ id: p.id, dynId: dynId(p.dynasty), count: p.count });
+}
+// resolve a candidate name to one poet in the SAME dynasty as the author (social networks
+// are overwhelmingly between contemporaries; cross-dynasty matches on a bare 2–3-char string
+// are nearly always a place / 字号 collision, and would draw lines across the whole galaxy).
+// Among same-dynasty namesakes pick the most prolific. Returns null if none qualify.
+function resolveTarget(name, authorDynId, fromId) {
+  const cands = byName.get(name);
+  if (!cands) return null;
+  let best = null, bestCount = -1;
+  for (const c of cands) {
+    if (c.id === fromId || c.dynId !== authorDynId) continue;
+    if (c.count > bestCount) { bestCount = c.count; best = c; }
+  }
+  return best ? best.id : null;
+}
+// scan a title right after a marker for a known poet name. Prefer a 3-char full name (very
+// low collision) anchored at the marker; fall back to a 2-char name immediately after it.
+// `len2ok` gates the noisier 2-char fallback (only when no 3-char name is present).
+function findName(after) {
+  const win = [...after].slice(0, 6).join("");
+  const stripped = win.replace(HONORIFIC, "");
+  for (const probe of [stripped, win]) {
+    const cs = [...probe];
+    for (let s = 0; s <= 1 && s + 3 <= cs.length; s++) {
+      const cand = cs.slice(s, s + 3).join("");
+      if (!GIFT_STOP.has(cand) && byName.has(cand)) return cand;
+    }
+  }
+  for (const probe of [stripped, win]) {
+    const cs = [...probe];
+    const cand = cs.slice(0, 2).join(""); // 2-char only immediately after the marker
+    if (cand.length === 2 && !GIFT_STOP.has(cand) && byName.has(cand)) return cand;
+  }
+  return null;
+}
+const edgeW = new Map(); // "from|to" -> weight
+for (const p of poets.values()) {
+  const aDyn = dynId(p.dynasty);
+  for (const poem of p.poems) {
+    const title = poem.t;
+    if (!title) continue;
+    for (const mk of GIFT_MARKERS) {
+      const at = title.indexOf(mk);
+      if (at < 0) continue;
+      const name = findName(title.slice(at + mk.length));
+      if (!name) continue;
+      const to = resolveTarget(name, aDyn, p.id);
+      if (!to) continue;
+      const key = p.id + "|" + to;
+      edgeW.set(key, (edgeW.get(key) || 0) + 1);
+      break; // one edge per poem (first matching marker wins)
+    }
+  }
+}
+const edges = [...edgeW.entries()]
+  .map(([k, w]) => { const [from, to] = k.split("|"); return [from, to, w]; })
+  .sort((a, b) => b[2] - a[2]);
+writeFileSync(join(OUT, "gifts.json"), JSON.stringify({ version: 1, edgeCount: edges.length, edges }));
 
 // dynasty poet counts
 const dynCounts = {};
 for (const p of poets.values()) dynCounts[p.dynasty] = (dynCounts[p.dynasty] || 0) + 1;
 
 writeFileSync(join(OUT, "manifest.json"), JSON.stringify({
-  version: 1, n: N, poetCount: poets.size, poemCount: total,
-  buckets: [...buckets.keys()].sort(), dynCounts,
+  version: 2, n: N, poetCount: poets.size, poemCount: total,
+  buckets: [...buckets.keys()].sort(),
+  firstlineBuckets: [...flBuckets.keys()].sort(),
+  giftEdges: edges.length,
+  dynCounts,
 }));
+console.log(`\n首句索引 buckets=${flBuckets.size}  赠诗 edges=${edges.length}`);
 
 console.log(`\nDONE  poets=${poets.size}  poems=${total}  字库 N=${N}  buckets=${buckets.size}`);
 console.log("dynasty poet counts:", dynCounts);

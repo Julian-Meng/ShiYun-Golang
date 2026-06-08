@@ -5,12 +5,14 @@ const FORM_LABEL: Record<string, string> = {
   qijue: "七言绝句",
   wulu: "五言律诗",
   qilu: "七言律诗",
+  ziyou: "自由格式 · 词",
 };
 
 export function PoemPanel() {
   const selected = useStore((s) => s.selected);
   const close = useStore((s) => s.clearSelection);
   if (!selected) return null;
+  const isFree = selected.form === "ziyou";
 
   return (
     <div className="poem-panel">
@@ -31,26 +33,30 @@ export function PoemPanel() {
           <span className="meta-v">{FORM_LABEL[selected.form]}</span>
         </div>
         <div className="meta-row">
-          <span className="meta-k">全集编号</span>
+          <span className="meta-k">{isFree ? "自由目录编号" : "全集编号"}</span>
           <span className="meta-v idx" title={`${selected.babelDigits} 位十进制`}>
             {selected.babelIndex}
           </span>
         </div>
-        <div className="meta-row">
-          <span className="meta-k">格律编号</span>
-          {selected.valid ? (
-            <span className="meta-v idx lushi">
-              <span className="seal">律</span>
-              {selected.lushiIndex}
-            </span>
-          ) : (
-            <span className="meta-v muted">非格律 · 纯随机目录</span>
-          )}
-        </div>
+        {!isFree && (
+          <div className="meta-row">
+            <span className="meta-k">格律编号</span>
+            {selected.valid ? (
+              <span className="meta-v idx lushi">
+                <span className="seal">律</span>
+                {selected.lushiIndex}
+              </span>
+            ) : (
+              <span className="meta-v muted">非格律 · 纯随机目录</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="poem-foot">
-        这首诗一直在诗云里，编号 {selected.babelDigits} 位长 —— 地址几乎和诗本身一样长。
+        {isFree
+          ? `换行也写进了编号里 —— 这 ${selected.babelDigits} 位地址既定了字，也定了断句。`
+          : `这首诗一直在诗云里，编号 ${selected.babelDigits} 位长 —— 地址几乎和诗本身一样长。`}
       </div>
     </div>
   );

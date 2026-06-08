@@ -40,6 +40,20 @@ textBabelIndex(form, hanText): {index, digits} | null
 // a REAL poem's catalog index; null unless char count == form length & all chars ∈ 字库.
 ```
 
+```ts
+type PullForm = FormId | "ziyou";     // the 5th "form" — 自由格式 / 词 — is a separate catalog
+pullAt(form: PullForm, pos, {lushiOnly?, commonK?})
+// form="ziyou" → describeFree: a variable-length 词 from the radix-(realN+W) 自由 catalog;
+// lines come from splitFree (id ≥ realN = a line break), index is the 自由目录 address, no 格律.
+
+halfIndex(form: FormId, han): HalfIndex | null   // 半编号 of a typed OPENING (han.length ≤ L)
+halfIndexAuto(han): HalfIndex | null             // ↑ but auto-picks the smallest fitting form
+interface HalfIndex { form; index; digits; locked; freeChars; total }
+// `index` = the high-order address the opening pins (prefix padded with char-id 0); the real
+// poem's full 全集编号 starts with these same high-order digits. `freeChars` low positions stay
+// free ⇒ N^freeChars poems share this opening (one contiguous high-order range).
+```
+
 Form lengths: 五绝 20 · 七绝 28 · 五律 40 · 七律 56 chars.
 **Index convention: first char = most-significant digit** (`index = Σ cᵢ·N^(L-1-i)`), so poems
 sharing an opening prefix occupy a contiguous high-order range → 半编号 prefix search.
@@ -71,6 +85,30 @@ Invariants (tested in `engine.test.ts`):
 - `isRegulated(regulatedUnrank(s).chars) === true`
 - `globalToRegulated(embedToGlobal(s)) === s`  (the 格律 catalog is exactly the valid
   subset of the Babel catalog, re-indexed)
+
+**半编号 prefix index (content search — first char = MSB):**
+```ts
+prefixIndex(L, N: bigint, prefix: number[]): bigint  // smallest index sharing this opening
+prefixRange(L, N: bigint, locked: number): bigint    // N^(L-locked) = poems sharing it
+```
+`prefixIndex` pads the opening with char-id 0 in the free low positions; the pinned high-order
+digits are the 半编号. A full poem (`prefix.length === L`) ⇒ `prefixIndex === babelRank` and
+`prefixRange === 1`.
+
+**自由 catalog — variable-length 词 / 自由诗 (a SEPARATE catalog, not a FormId):**
+```ts
+FREE_L = 28                              // total positions
+freeBreakCount(N): number                // W = round(N/5) "break" glyphs (ids N..N+W-1)
+freeRadix(N): bigint                     // N + W
+freeSize(N, L?=FREE_L): bigint           // (N+W)^L
+freeUnrank(N, k: bigint, L?): number[]   // base-(N+W) digits; ids ≥ N are line breaks
+freeRank(N, ids: number[]): bigint
+splitFree(N, ids): number[][]            // group runs of real chars, drop break ids
+```
+A *block* of W break glyphs (not one separator) is used on purpose: at N=12,783 a single
+separator is hit ~1/12,784 of the time → no breaks; W≈N/5 gives break prob ≈ 1/6 ⇒ mean line
+≈ 5 real chars (词-like). `splitFree` drops break ids for display only, so the index is NOT
+canonicalized and `freeRank(freeUnrank(k)) === k` stays exact.
 
 **Reversible scatter (format-preserving Feistel + cycle-walk):**
 ```ts

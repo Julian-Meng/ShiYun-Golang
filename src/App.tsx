@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Galaxy } from "./three/Galaxy";
 import { PoetStars } from "./three/PoetStars";
+import { GiftLines } from "./three/GiftLines";
 import { PulledStars } from "./three/PulledStars";
 import { FlyControls } from "./three/FlyControls";
 import { HUD } from "./ui/HUD";
@@ -34,6 +35,7 @@ export default function App() {
         <fog attach="fog" args={["#03040a", 2400, 13000]} />
         <Galaxy />
         {loaded && <PoetStars />}
+        {loaded && <GiftLines />}
         <PulledStars />
         <FlyControls />
       </Canvas>

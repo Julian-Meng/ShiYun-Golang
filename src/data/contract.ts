@@ -74,6 +74,23 @@ export interface PoemShard {
   poets: Record<string, PoemRecord[]>; // poetId -> poems
 }
 
+/** One match in the first-line search index (firstline/{2-hex content bucket}.json). */
+export interface FirstLineRef {
+  p: string; // poetId
+  i: number; // poem index within the poet's poems[] (parallel to the poems shard)
+  t: string; // title
+  f: FormId | "other"; // detected form
+}
+export type FirstLineShard = Record<string, FirstLineRef[]>; // firstLine -> matching poems
+
+/** 赠诗 dedication edge: [fromPoetId, toPoetId, weight]. Both endpoints are corpus poets. */
+export type GiftEdge = [string, string, number];
+export interface GiftsAsset {
+  version: number;
+  edgeCount: number;
+  edges: GiftEdge[];
+}
+
 /** What the engine layer needs at runtime to operate. Produced from the assets. */
 export interface PoetryDataset {
   lexicon: Lexicon; // tone/rhyme tables (radix N lives inside)

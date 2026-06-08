@@ -389,9 +389,82 @@ canvas {
   color: var(--fg);
   font-size: 14px;
 }
+.sr-title {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: 4px;
+}
 .sr-meta {
   color: var(--muted);
   font-size: 11px;
+  white-space: nowrap;
+}
+
+/* search tabs (诗人 / 诗句) */
+.search-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+  justify-content: center;
+}
+.stab {
+  background: rgba(8, 10, 18, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 4px 16px;
+  cursor: pointer;
+}
+.stab.on {
+  color: var(--ink);
+  background: var(--gold);
+  border-color: var(--gold);
+  font-weight: 600;
+}
+.search-row:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* 诗句 content-search results + 半编号 */
+.line-results {
+  margin-top: 6px;
+  background: rgba(8, 10, 18, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  max-height: 56vh;
+  overflow: auto;
+}
+.lr-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 6px 0;
+}
+.lr-section:last-child {
+  border-bottom: none;
+}
+.lr-head {
+  font-size: 11px;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  padding: 4px 14px;
+}
+.half-note {
+  font-size: 11px;
+  color: #b9c1d4;
+  padding: 2px 14px;
+  line-height: 1.5;
+}
+.half-note.dim {
+  color: var(--muted);
+}
+.half-idx {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  color: var(--gold);
+  padding: 4px 14px;
+  word-break: break-all;
 }
 
 /* poet panel */
@@ -443,6 +516,21 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.poem-item.hit {
+  background: rgba(255, 210, 122, 0.08);
+  border: 1px solid rgba(255, 210, 122, 0.32);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: -2px 0 4px;
+}
+.pi-hit {
+  font-size: 10px;
+  color: var(--ink);
+  background: var(--gold);
+  border-radius: 4px;
+  padding: 0 5px;
+  margin-left: 6px;
 }
 .pi-title {
   font-size: 13px;

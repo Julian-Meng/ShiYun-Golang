@@ -6,21 +6,32 @@
 // Search → take a b, unrank, fly to its canonical scattered point.
 import {
   FORMS,
+  FORM_LIST,
   type FormId,
   type FormDef,
   babelUnrank,
   babelRank,
   babelSize,
+  prefixIndex,
   regulatedSize,
   regulatedUnrank,
   matchVariant,
   regulatedRank,
   scatter,
   indexToPoint,
+  freeSize,
+  freeUnrank,
+  freeRank,
+  splitFree,
   type Vec3,
   type Lexicon,
 } from "./engine";
 import { getDataset, onDatasetChange } from "../data/provider";
+
+// The 5th "form" — 自由格式 (词 / 自由诗) — is a SEPARATE variable-length catalog, not one of
+// the 4 regulated FormIds. PullForm is the UI/engineApi-facing union; the pure 格律 engine
+// types stay the 4 regulated forms only, so the 格律 contract is untouched.
+export type PullForm = FormId | "ziyou";
 
 const U64 = (1n << 64n) - 1n;
 const BABEL_KEY = 0x9e3779b97f4a7c15n;
@@ -55,7 +66,7 @@ export function regulatedCardinality(form: FormDef): bigint {
 }
 
 export interface PulledPoem {
-  form: FormId;
+  form: PullForm;
   lines: string[];
   babelIndex: string; // decimal — long on purpose (the address ≈ the poem)
   babelDigits: number;
@@ -119,6 +130,24 @@ function describe(form: FormDef, chars: number[], pos: [number, number, number])
   };
 }
 
+// 自由格式 pull: variable-length 词/自由诗 from the radix-(realN+W) catalog (see engine.ts).
+// `realN` = the real-char count drawn from (= commonK in 常用字 mode, else the full 字库 N).
+// Its own catalog ⇒ the displayed 自由目录编号 is over that radix; lushi/valid never apply.
+function describeFree(realN: number, ids: number[], pos: [number, number, number]): PulledPoem {
+  const { charset } = getDataset();
+  const lines = splitFree(realN, ids).map((seg) => seg.map((id) => charset[id]).join(""));
+  const b = freeRank(realN, ids);
+  return {
+    form: "ziyou",
+    lines,
+    babelIndex: b.toString(),
+    babelDigits: b === 0n ? 1 : b.toString().length,
+    lushiIndex: null,
+    valid: false,
+    pos,
+  };
+}
+
 export const COMMON_K = 2500; // "常用字" = the top-K most-frequent chars (字库 is freq-ordered)
 
 // A 格律 lexicon restricted to common chars (ids < K), so 格律 × 常用字 composes into
@@ -164,15 +193,26 @@ function commonLexicon(K: number): Lexicon {
 // The displayed 全集编号 is always the FULL-catalog address (a common-char poem is a real
 // point in the full Babel catalog), so filters change WHICH poem you land on, not its number.
 export function pullAt(
-  formId: FormId,
+  formId: PullForm,
   pos: [number, number, number],
   opts: { lushiOnly?: boolean; commonK?: number } = {},
 ): PulledPoem {
+  if (formId === "ziyou") {
+    const fullN = getDataset().lexicon.N;
+    const realN = opts.commonK ? Math.min(opts.commonK, fullN) : fullN;
+    const k = indexFromPoint(pos, freeSize(realN));
+    return describeFree(realN, freeUnrank(realN, k), pos);
+  }
   const form = FORMS[formId];
   if (opts.lushiOnly) {
     const lex = opts.commonK ? commonLexicon(opts.commonK) : getDataset().lexicon;
-    const s = indexFromPoint(pos, regulatedSize(lex, form));
-    return describe(form, regulatedUnrank(lex, form, s).chars, pos);
+    const size = regulatedSize(lex, form);
+    if (size > 0n) {
+      const s = indexFromPoint(pos, size);
+      return describe(form, regulatedUnrank(lex, form, s).chars, pos);
+    }
+    // 格律 sub-catalog is empty under this (form × commonK) — no valid tone/rhyme picks left;
+    // fall through to the random library rather than dividing by zero.
   }
   const radix = opts.commonK ? BigInt(Math.min(opts.commonK, getDataset().lexicon.N)) : N();
   const b = indexFromPoint(pos, radix ** BigInt(form.L));
@@ -199,20 +239,55 @@ function charToId(): Map<string, number> {
 }
 
 const HAN = /\p{Script=Han}/u;
-/** Catalog index of a real poem's text, IF it is exactly one of the 4 forms' length
- *  and every char is in the 字库. Returns null otherwise (古体/其它 → no fixed index). */
-export function textBabelIndex(formId: FormId, han: string): { index: string; digits: number } | null {
-  const form = FORMS[formId];
-  const chars = [...han].filter((c) => HAN.test(c));
-  if (chars.length !== form.L) return null;
+/** Han chars of `han` → 字库 ids, or null if any char is outside the 字库. */
+function hanToIds(han: string): number[] | null {
   const map = charToId();
   const ids: number[] = [];
-  for (const c of chars) {
+  for (const c of han) {
+    if (!HAN.test(c)) continue;
     const id = map.get(c);
     if (id === undefined) return null;
     ids.push(id);
   }
+  return ids;
+}
+
+/** Catalog index of a real poem's text, IF it is exactly one of the 4 forms' length
+ *  and every char is in the 字库. Returns null otherwise (古体/其它 → no fixed index). */
+export function textBabelIndex(formId: FormId, han: string): { index: string; digits: number } | null {
+  const form = FORMS[formId];
+  const ids = hanToIds(han);
+  if (!ids || ids.length !== form.L) return null;
   const b = babelRank(N(), ids);
   const s = b.toString();
   return { index: s, digits: s.length };
+}
+
+// 半编号: interpret a typed line/opening as the START of a form and return the high-order
+// address its known chars pin (see engine.prefixIndex). `freeChars` low positions stay free,
+// so prefixRange = N^freeChars poems share this opening. A known line ⇒ a known half-number.
+export interface HalfIndex {
+  form: FormId;
+  index: string; // decimal high-order address (the prefix padded with the lowest char)
+  digits: number;
+  locked: number; // chars pinned by the typed opening
+  freeChars: number; // remaining free positions in the form
+  total: number; // form length L
+}
+export function halfIndex(formId: FormId, han: string): HalfIndex | null {
+  const form = FORMS[formId];
+  const ids = hanToIds(han);
+  if (!ids || ids.length === 0 || ids.length > form.L) return null;
+  const s = prefixIndex(form.L, N(), ids).toString();
+  return { form: formId, index: s, digits: s.length, locked: ids.length, freeChars: form.L - ids.length, total: form.L };
+}
+/** 半编号 for the best-fitting form: prefer one whose LINE length divides the opening (a 5-char
+ *  line ⇒ 五绝, a 7-char line ⇒ 七绝 — never 五绝), smallest L; else the smallest form it fits in. */
+export function halfIndexAuto(han: string): HalfIndex | null {
+  const ids = hanToIds(han);
+  if (!ids || ids.length === 0) return null;
+  const len = ids.length;
+  for (const f of FORM_LIST) if (len % f.cpl === 0 && len <= f.L) return halfIndex(f.id, han);
+  for (const f of FORM_LIST) if (len <= f.L) return halfIndex(f.id, han);
+  return null; // longer than 七律 (56) — too long to pin to a single form
 }

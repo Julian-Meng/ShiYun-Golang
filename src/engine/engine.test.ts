@@ -4,6 +4,8 @@ import {
   babelRank,
   babelUnrank,
   babelSize,
+  prefixIndex,
+  prefixRange,
   regulatedSize,
   regulatedUnrank,
   regulatedRank,
@@ -13,6 +15,11 @@ import {
   scatter,
   unscatter,
   indexToPoint,
+  freeRadix,
+  freeSize,
+  freeUnrank,
+  freeRank,
+  splitFree,
   randBig,
   hamming,
   type FormDef,
@@ -107,6 +114,80 @@ describe("scatter decorrelates neighbours (statistical)", () => {
       total += hamming(a, b);
     }
     expect(total / trials).toBeGreaterThanOrEqual(0.8 * form.L);
+  });
+});
+
+describe("半编号 prefix index (content search)", () => {
+  it.each(FORM_LIST)("a full poem's prefix index === its babel index ($id)", (form: FormDef) => {
+    for (let t = 0; t < 50; t++) {
+      const chars = babelUnrank(form.L, N, randBig(babelSize(form.L, N)));
+      expect(prefixIndex(form.L, N, chars)).toBe(babelRank(N, chars));
+      expect(prefixRange(form.L, N, form.L)).toBe(1n); // a full poem locks everything
+    }
+  });
+
+  it("a leading prefix pins the high-order chars and the range = N^(L-m)", () => {
+    const form = FORM_LIST[0]; // wujue L=20
+    for (let t = 0; t < 50; t++) {
+      const full = babelUnrank(form.L, N, randBig(babelSize(form.L, N)));
+      const m = 5; // first line of a 五绝
+      const prefix = full.slice(0, m);
+      const lo = prefixIndex(form.L, N, prefix);
+      // every poem in [lo, lo+range) shares the prefix; unranking lo reproduces the prefix
+      const back = babelUnrank(form.L, N, lo);
+      expect(back.slice(0, m)).toEqual(prefix);
+      expect(back.slice(m).every((c) => c === 0)).toBe(true); // padded with id 0
+      expect(prefixRange(form.L, N, m)).toBe(N ** BigInt(form.L - m));
+      // the FULL poem lives inside the prefix's contiguous range [lo, lo+range)
+      const full_i = babelRank(N, full);
+      expect(full_i).toBeGreaterThanOrEqual(lo);
+      expect(full_i).toBeLessThan(lo + prefixRange(form.L, N, m));
+    }
+  });
+});
+
+describe("自由 catalog (变长 词 / 自由诗)", () => {
+  const FN = lex.N; // 120 in the fixture
+  const FL = 14; // shorter length keeps the random indices small & the suite fast
+
+  it("freeRank(freeUnrank(k)) === k over the radix-(N+W) alphabet", () => {
+    const size = freeSize(FN, FL);
+    for (let t = 0; t < ITERS; t++) {
+      const k = randBig(size);
+      expect(freeRank(FN, freeUnrank(FN, k, FL))).toBe(k);
+    }
+  });
+
+  it("edge cases 0 and |free| - 1 round-trip", () => {
+    const size = freeSize(FN, FL);
+    for (const k of [0n, size - 1n]) {
+      expect(freeRank(FN, freeUnrank(FN, k, FL))).toBe(k);
+    }
+  });
+
+  it("every unrank id is in [0, N+W); break ids are exactly those >= N", () => {
+    const radix = Number(freeRadix(FN));
+    for (let t = 0; t < ITERS; t++) {
+      const ids = freeUnrank(FN, randBig(freeSize(FN, FL)), FL);
+      expect(ids.length).toBe(FL);
+      for (const id of ids) {
+        expect(id).toBeGreaterThanOrEqual(0);
+        expect(id).toBeLessThan(radix);
+      }
+    }
+  });
+
+  it("splitFree groups runs of real chars, drops break ids, and never emits a break", () => {
+    // ids: real, real, break, real, break, break, real  → 3 lines [2,1,1]
+    const B = FN; // first break id
+    const ids = [0, 1, B, 2, B, B + 3, 3];
+    const lines = splitFree(FN, ids);
+    expect(lines.map((l) => l.length)).toEqual([2, 1, 1]);
+    for (const line of lines) for (const id of line) expect(id).toBeLessThan(FN);
+  });
+
+  it("splitFree on an all-break sequence yields a single empty line (never zero lines)", () => {
+    expect(splitFree(FN, [FN, FN, FN])).toEqual([[]]);
   });
 });
 

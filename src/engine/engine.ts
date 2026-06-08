@@ -68,6 +68,64 @@ export function babelSize(L: number, N: bigint): bigint {
   return N ** big(L);
 }
 
+// 半编号: the smallest Babel index sharing a given leading prefix (prefix padded with
+// char-id 0 in the free low positions). Because the FIRST char is the most-significant
+// digit, an m-char opening line pins the top m base-N digits — i.e. fixes the high-order
+// address. The N^(L-m) poems that share that opening occupy the contiguous range
+// [prefixIndex, prefixIndex + prefixRange). A known line ⇒ a known half-number.
+export function prefixIndex(L: number, N: bigint, prefix: number[]): bigint {
+  const padded = prefix.slice(0, L);
+  while (padded.length < L) padded.push(0);
+  return babelRank(N, padded);
+}
+export function prefixRange(L: number, N: bigint, locked: number): bigint {
+  return N ** big(Math.max(0, L - locked));
+}
+
+// ───────────────── 自由 catalog: variable-length verse (词 / 自由诗) ─────────────────
+// A SEPARATE catalog from Babel/格律. The alphabet is the 字库 (size N real glyphs) PLUS a
+// contiguous block of W "break" symbols (ids N..N+W-1) that all render as a line break.
+// A poem is FREE_L positions over this radix-(N+W) alphabet — i.e. just a base-(N+W) Babel
+// string, an exact bijection — but because ≈ W/(N+W) of positions are breaks, a random pull
+// falls into VARIABLE-length lines (词-like) instead of one flat L-char run.
+//   W = round(N/5)  → break prob ≈ 1/6 → mean line ≈ 5 real chars.
+// Display splits the id sequence on any break id; the index is NOT canonicalized
+// (consecutive / edge breaks → empty segments, dropped for display only), so the catalog
+// stays a clean bijection: freeRank(freeUnrank(k)) === k. Real chars always satisfy id < N.
+export const FREE_L = 28; // total positions (七绝-class length → ~23 real chars after breaks)
+export function freeBreakCount(N: number): number {
+  return Math.max(1, Math.round(N / 5));
+}
+export function freeRadix(N: number): bigint {
+  return big(N + freeBreakCount(N));
+}
+export function freeSize(N: number, L = FREE_L): bigint {
+  return freeRadix(N) ** big(L);
+}
+export function freeUnrank(N: number, k: bigint, L = FREE_L): number[] {
+  return babelUnrank(L, freeRadix(N), k);
+}
+export function freeRank(N: number, ids: number[]): bigint {
+  return babelRank(freeRadix(N), ids);
+}
+// Group an id sequence into display lines, dropping break ids (id >= N, the real-char count).
+// Empty segments (consecutive / leading / trailing breaks) are dropped for display only —
+// the underlying index still counts them, so the bijection is unaffected.
+export function splitFree(N: number, ids: number[]): number[][] {
+  const lines: number[][] = [];
+  let cur: number[] = [];
+  for (const id of ids) {
+    if (id >= N) {
+      if (cur.length) {
+        lines.push(cur);
+        cur = [];
+      }
+    } else cur.push(id);
+  }
+  if (cur.length) lines.push(cur);
+  return lines.length ? lines : [[]];
+}
+
 // ───────────────── Tone templates (4 基本律句 + 对/粘) ─────────────────
 // 五言 4 基本律句 keyed by (起式 head, 收式 tail):
 //  仄仄平平仄=ZZPPZ | 仄仄仄平平=ZZZPP | 平平平仄仄=PPPZZ | 平平仄仄平=PPZZP

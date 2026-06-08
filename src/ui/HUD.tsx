@@ -1,12 +1,13 @@
 import { useStore } from "../state/store";
 import { getManifest, hasRealGelu } from "../data/load";
-import type { FormId } from "../engine/engine";
+import type { PullForm } from "../engine/engineApi";
 
-const FORMS: { id: FormId; label: string }[] = [
+const FORMS: { id: PullForm; label: string; title?: string }[] = [
   { id: "wujue", label: "五绝" },
   { id: "qijue", label: "七绝" },
   { id: "wulu", label: "五律" },
   { id: "qilu", label: "七律" },
+  { id: "ziyou", label: "自由", title: "词 / 自由诗:换行也由编号决定,行长不定" },
 ];
 
 export function HUD() {
@@ -16,6 +17,8 @@ export function HUD() {
   const toggleCommon = useStore((s) => s.toggleCommon);
   const lushi = useStore((s) => s.lushiFilter);
   const toggleLushi = useStore((s) => s.toggleLushi);
+  const showGifts = useStore((s) => s.showGifts);
+  const toggleGifts = useStore((s) => s.toggleGifts);
   const speed = useStore((s) => s.speed);
   const loaded = useStore((s) => s.loaded);
   const m = getManifest();
@@ -32,6 +35,7 @@ export function HUD() {
               key={f.id}
               className={f.id === form ? "seg-btn on" : "seg-btn"}
               onClick={() => setForm(f.id)}
+              title={f.title}
             >
               {f.label}
             </button>
@@ -44,7 +48,7 @@ export function HUD() {
         >
           常用字
         </button>
-        {hasRealGelu() && (
+        {hasRealGelu() && form !== "ziyou" && (
           <button
             className={lushi ? "filter on" : "filter"}
             onClick={toggleLushi}
@@ -53,6 +57,13 @@ export function HUD() {
             格律
           </button>
         )}
+        <button
+          className={showGifts ? "filter on" : "filter"}
+          onClick={toggleGifts}
+          title="显示诗人之间的赠答网络（寄/赠/和/次韵），选中诗人可高亮其往来"
+        >
+          赠诗
+        </button>
         {loaded && m && (
           <div className="stat">
             {m.poetCount.toLocaleString()} 诗人 · {m.poemCount.toLocaleString()} 首

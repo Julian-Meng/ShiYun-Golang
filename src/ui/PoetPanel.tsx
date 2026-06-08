@@ -2,6 +2,7 @@ import { useStore } from "../state/store";
 import { DYNASTY_BY_KEY } from "../data/dynasties";
 import { textBabelIndex } from "../engine/engineApi";
 import type { FormId } from "../engine/engine";
+import type { PoemRecord } from "../data/load";
 
 const FORM_LABEL: Record<string, string> = {
   wujue: "五绝",
@@ -14,9 +15,23 @@ const FORM_LABEL: Record<string, string> = {
 export function PoetPanel() {
   const poet = useStore((s) => s.selectedPoet);
   const poems = useStore((s) => s.poetPoems);
+  const focus = useStore((s) => s.poetFocus);
   const close = useStore((s) => s.clearPoet);
   if (!poet) return null;
   const dyn = DYNASTY_BY_KEY[poet.dynasty];
+
+  // 诗句 search → surface the EXACT matched poem first (by its index in the poet's poems[],
+  // which is the pipeline write order the firstline ref's `i` points at — so duplicate titles
+  // / shared openings can't false-match), highlighted; then the rest, capped at 60 total.
+  const CAP = 60;
+  let ordered: { pm: PoemRecord; hit: boolean }[] = [];
+  if (poems) {
+    const fIdx = focus?.poemIdx ?? -1;
+    const matched: { pm: PoemRecord; hit: boolean }[] = [];
+    const rest: { pm: PoemRecord; hit: boolean }[] = [];
+    poems.forEach((pm, i) => (i === fIdx ? matched : rest).push({ pm, hit: i === fIdx }));
+    ordered = [...matched, ...rest.slice(0, CAP - matched.length)];
+  }
 
   return (
     <div className="poet-panel">
@@ -35,13 +50,14 @@ export function PoetPanel() {
         <div className="loading-row">载入作品…</div>
       ) : (
         <div className="poem-list">
-          {poems.slice(0, 60).map((pm, i) => {
+          {ordered.map(({ pm, hit }, i) => {
             const idx =
               pm.f !== "other" ? textBabelIndex(pm.f as FormId, pm.p.join("")) : null;
             return (
-              <div className="poem-item" key={i}>
+              <div className={hit ? "poem-item hit" : "poem-item"} key={i}>
                 <div className="pi-title">
                   {pm.t || "（无题）"} <span className="pi-form">{FORM_LABEL[pm.f]}</span>
+                  {hit && <span className="pi-hit">你搜的这首</span>}
                 </div>
                 <div className="pi-body">
                   {pm.p.map((l, j) => (
@@ -50,14 +66,14 @@ export function PoetPanel() {
                 </div>
                 {idx && (
                   <div className="pi-idx" title={`全集编号 · ${idx.digits} 位`}>
-                    编号 {idx.index.slice(0, 32)}…
+                    {hit ? `全集编号 ${idx.index.slice(0, 40)}…（${idx.digits} 位）` : `编号 ${idx.index.slice(0, 32)}…`}
                   </div>
                 )}
               </div>
             );
           })}
-          {poems.length > 60 && (
-            <div className="more">…共 {poems.length} 首,仅显示前 60</div>
+          {poems.length > ordered.length && (
+            <div className="more">…共 {poems.length} 首,仅显示前 {ordered.length}</div>
           )}
         </div>
       )}

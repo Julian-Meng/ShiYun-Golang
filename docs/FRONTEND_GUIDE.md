@@ -15,8 +15,12 @@ getPoets(): PoetRow[]                       // all ~29,300 poets, sorted by poem
 getPoet(id): PoetRow | undefined
 loadPoetPoems(id): Promise<PoemRecord[]>    // lazy — fetches the poet's bucket, caches it
 searchPoets(query, limit?): PoetRow[]       // substring name match, ranked by output
+searchByLine(query): Promise<LineHit[]>     // 诗句 search — first-line index → real poems
+loadGifts(): Promise<GiftEdge[]>            // 赠诗 edges [fromId,toId,weight] (lazy, cached)
 getManifest(): DataManifest | null          // {n, poetCount, poemCount, buckets, dynCounts}
 ```
+`searchByLine` shards by `fnv32(firstLine)&0xff` (== pipeline `lineBucket`); a `LineHit`
+carries `{poetId, poemIdx, title, form, firstLine, poet}` → open the poet & surface `poems[i]`.
 ```ts
 type PoetRow    = { id; name; dynasty; poemCount; clusterSize }
 type PoemRecord = { t: title; f: "wujue"|"qijue"|"wulu"|"qilu"|"other"; p: lines[] }
@@ -25,10 +29,12 @@ type PoemRecord = { t: title; f: "wujue"|"qijue"|"wulu"|"qilu"|"other"; p: lines
 ## 2. Engine API — `src/engine/engineApi.ts`
 
 ```ts
-pullAt(form, [x,y,z], lushiOnly): PulledPoem   // void-pull a poem at a world point
+pullAt(form: PullForm, [x,y,z], {lushiOnly?, commonK?}): PulledPoem  // void-pull at a point
+//   PullForm = FormId | "ziyou"; form="ziyou" → variable-length 自由格式/词 (splitFree lines)
 pointForBabelIndex(form, b, R?): Vec3          // 3D location of a known index (fly-to)
 textBabelIndex(form, hanText): {index, digits} | null
 // ↑ a REAL poem's catalog index (null unless its length matches the form & chars ∈ 字库)
+halfIndex(form, han) / halfIndexAuto(han): HalfIndex | null  // 半编号 of a typed opening
 babelCardinality(form) / regulatedCardinality(form): bigint
 ```
 See [ENGINE_API.md](ENGINE_API.md). **First char = most-significant digit** ⇒ a known
@@ -90,6 +96,11 @@ Transient camera transform lives in `FlyControls` refs, NOT the store (no 60fps 
   via charlesix59, MIT + pinyin-pro tail) → `load.ts` `hydrateLexicon` → real Lexicon;
   `hasRealGelu()` gates the HUD 格律 toggle. **格律 × 常用字 compose** via
   `engineApi.commonLexicon(K)` → tone-valid poems in common chars.
-- **Still TODO**: 自由格式/词 mode (add a separator char into the alphabet → variable line
-  structure, as a 5th "form"); line/whole-poem **content search** (床前明月光→静夜思 + 半编号,
-  needs a first-line index sharded by leading char); 赠诗 network (image-1); prod brotli+deploy.
+- **自由格式 / 词** (done): a 5th `PullForm="ziyou"` over a radix-(N+W) catalog — see
+  ENGINE_API.md. HUD 自由 button; PoemPanel shows 自由目录编号 (no 格律 row); composes with 常用字.
+- **诗句 content search** (done): `SearchPanel` 诗人/诗句 tabs. 诗句 → `searchByLine` (真实诗人,
+  highlighted in PoetPanel via `store.poetFocus`) + `halfIndexAuto` (半编号, always-on, no data).
+- **赠诗 network** (done): `three/GiftLines` (LineSegments from `loadGifts`), HUD 赠诗 toggle,
+  `store.showGifts`; selecting a poet lights up their edges, others dim. Lines are 1px (WebGL).
+- **Still TODO**: polish (GPU-pick at scale, bloom, per-poet fetch, thicker 赠诗 lines via
+  `Line2`); prod brotli + deploy; optional whole-poem/all-lines search index.

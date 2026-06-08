@@ -15,9 +15,18 @@ The app loads these static assets, builds a `PoetryDataset`, and calls
 | `charset.json` | initial | ~25 KB | `CharsetAsset` | 字库, ordered by freq; index = base-N digit |
 | `lexicon.json` | initial | ~80–120 KB | `LexiconAsset` | tone + 平水韵 tables → `hydrateLexicon()` |
 | `poets.index.json` | initial | ~0.9–1.1 MB | `PoetIndexEntry[]` | ~30–40k poets (all dynasties) |
+| `gifts.json` | initial | ~40 KB | `GiftsAsset` | 赠诗 edges `[fromId,toId,w]`; **tracked** (small) |
 | `dynasties.json` | initial | <1 KB | (see DYNASTIES) | optional; mirrors `src/data/dynasties.ts` |
 | `stars/{shard}.json` | lazy/region | ~20–60 KB ea | `StarShard` | histograms + sample refs |
-| `poems/{shard}.json` | lazy/poet | ~20–60 KB ea | `PoemShard` | real poem text |
+| `poems/{shard}.json` | lazy/poet | ~20–60 KB ea | `PoemShard` | real poem text (git-ignored) |
+| `firstline/{shard}.json` | lazy/search | ~20–60 KB ea | `FirstLineShard` | first-line → poem refs; 256 buckets by `fnv32(firstLine)&0xff` (git-ignored) |
+
+**Content-search bucketing invariant:** the pipeline's `lineBucket(s) = (fnv32(s)&0xff)` and the
+frontend's `lineBucket(s) = (hashStr(s)&0xff)` (`src/data/dynasties.ts::hashStr`) are the SAME
+FNV-1a-32, so `searchByLine` loads the shard the pipeline wrote the line into. `FirstLineRef.i`
+indexes the poet's `poems[]` array in the **same order** the poems shard was written, so a hit
+resolves to `poems[poetId][i]`. **赠诗 edges** are emitted only when both endpoints are corpus
+poets **of the same dynasty** (precision; also keeps every line inside one dynasty shell).
 
 **First-paint budget ≤ 1.3 MB brotli.** Per-poet poem shards (~60–90 MB total) load only on
 focus. Star x/y/z are **computed client-side** from poet `id` + dynasty shell (zero asset

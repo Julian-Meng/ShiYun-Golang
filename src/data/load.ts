@@ -4,7 +4,8 @@
 // 格律 — the UI runs in random (Babel) mode.
 import type { Lexicon } from "../engine/engine";
 import { setDataset } from "./provider";
-import { hydrateLexicon, type LexiconAsset } from "./contract";
+import { hydrateLexicon, type LexiconAsset, type FirstLineRef, type GiftEdge, type GiftsAsset } from "./contract";
+import { hashStr } from "./dynasties";
 
 let _realGelu = false;
 /** True once a real 平仄/平水韵 lexicon is loaded (so the UI can offer the 格律 mode). */
@@ -111,4 +112,64 @@ export function searchPoets(q: string, limit = 40): PoetRow[] {
     }
   }
   return out;
+}
+
+// ── Content search (诗句 → 真实诗): first-line index, sharded by content hash (256 buckets,
+//    matching the pipeline's lineBucket). 床前明月光 → 李白《静夜思》. Lazy, like poems/. ──
+const HAN = /\p{Script=Han}/u;
+const lineBucket = (s: string) => (hashStr(s) & 0xff).toString(16).padStart(2, "0");
+const _flShard = new Map<string, Record<string, FirstLineRef[]>>();
+async function loadFlShard(bucket: string, base: string): Promise<Record<string, FirstLineRef[]>> {
+  let obj = _flShard.get(bucket);
+  if (obj) return obj;
+  obj = await fetch(`${base}/firstline/${bucket}.json`)
+    .then((r) => (r.ok ? r.json() : {}))
+    .catch(() => ({}));
+  _flShard.set(bucket, obj!);
+  return obj!;
+}
+
+export interface LineHit {
+  poetId: string;
+  poemIdx: number;
+  title: string;
+  form: string;
+  firstLine: string;
+  poet?: PoetRow;
+}
+/** Find real poems whose FIRST line matches the typed text (or its 5/7-char opening). */
+export async function searchByLine(query: string, base = "/data"): Promise<LineHit[]> {
+  const cs = [...query].filter((c) => HAN.test(c));
+  if (cs.length < 2) return [];
+  const han = cs.join("");
+  // candidate keys: the whole input, plus common opening-line lengths if the user pasted more
+  const cands = new Set<string>([han]);
+  for (const k of [7, 6, 5, 4]) if (cs.length > k) cands.add(cs.slice(0, k).join(""));
+  const seen = new Set<string>();
+  const hits: LineHit[] = [];
+  for (const key of cands) {
+    const shard = await loadFlShard(lineBucket(key), base);
+    for (const r of shard[key] || []) {
+      const k2 = r.p + "#" + r.i;
+      if (seen.has(k2)) continue;
+      seen.add(k2);
+      hits.push({ poetId: r.p, poemIdx: r.i, title: r.t, form: r.f, firstLine: key, poet: _byId.get(r.p) });
+    }
+  }
+  // a longer matched opening is more specific; then prefer the more prolific (better-known) poet
+  hits.sort(
+    (a, b) => b.firstLine.length - a.firstLine.length || (b.poet?.poemCount || 0) - (a.poet?.poemCount || 0),
+  );
+  return hits.slice(0, 30);
+}
+
+// ── 赠诗 network: committed edge list [fromId, toId, weight]; loaded lazily on first toggle. ──
+let _gifts: GiftEdge[] | null = null;
+export async function loadGifts(base = "/data"): Promise<GiftEdge[]> {
+  if (_gifts) return _gifts;
+  const a: GiftsAsset | null = await fetch(`${base}/gifts.json`)
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+  _gifts = a?.edges ?? [];
+  return _gifts;
 }

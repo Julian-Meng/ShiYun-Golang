@@ -1,6 +1,5 @@
 import { create } from "zustand";
-import type { FormId } from "../engine/engine";
-import type { PulledPoem } from "../engine/engineApi";
+import type { PulledPoem, PullForm } from "../engine/engineApi";
 import type { PoetRow, PoemRecord } from "../data/load";
 import { DYNASTIES } from "../data/dynasties";
 
@@ -13,7 +12,7 @@ interface State {
   // data
   loaded: boolean;
   // form + mode
-  form: FormId;
+  form: PullForm;
   lushiFilter: boolean;
   commonOnly: boolean;
   // dynasty filter
@@ -25,12 +24,15 @@ interface State {
   hoverPoetId: string | null;
   selectedPoet: PoetRow | null;
   poetPoems: PoemRecord[] | null;
+  poetFocus: { poemIdx: number; title: string; firstLine: string } | null; // poem to surface (诗句 search)
+  // 赠诗 network
+  showGifts: boolean;
   // camera
   speed: number; // multiplier
   flyTarget: [number, number, number] | null;
 
   setLoaded: (b: boolean) => void;
-  setForm: (f: FormId) => void;
+  setForm: (f: PullForm) => void;
   toggleLushi: () => void;
   toggleCommon: () => void;
   toggleDynasty: (key: string) => void;
@@ -39,9 +41,10 @@ interface State {
   selectPoem: (p: PulledPoem) => void;
   clearSelection: () => void;
   setHover: (id: string | null) => void;
-  selectPoet: (p: PoetRow) => void;
+  selectPoet: (p: PoetRow, focus?: { poemIdx: number; title: string; firstLine: string } | null) => void;
   setPoetPoems: (id: string, poems: PoemRecord[]) => void;
   clearPoet: () => void;
+  toggleGifts: () => void;
   setSpeed: (s: number) => void;
   setFlyTarget: (t: [number, number, number] | null) => void;
 }
@@ -60,6 +63,8 @@ export const useStore = create<State>((set) => ({
   hoverPoetId: null,
   selectedPoet: null,
   poetPoems: null,
+  poetFocus: null,
+  showGifts: false,
   speed: 1,
   flyTarget: null,
 
@@ -80,14 +85,17 @@ export const useStore = create<State>((set) => ({
       selected: p,
       selectedPoet: null,
       poetPoems: null,
+      poetFocus: null,
       pulls: [...s.pulls, { pos: p.pos, valid: p.valid }].slice(-MAX_PULLS),
     })),
   clearSelection: () => set({ selected: null }),
   setHover: (hoverPoetId) => set({ hoverPoetId }),
-  selectPoet: (selectedPoet) => set({ selectedPoet, poetPoems: null, selected: null }),
+  selectPoet: (selectedPoet, focus = null) =>
+    set({ selectedPoet, poetPoems: null, poetFocus: focus, selected: null }),
   setPoetPoems: (id, poems) =>
     set((s) => (s.selectedPoet?.id === id ? { poetPoems: poems } : {})),
-  clearPoet: () => set({ selectedPoet: null, poetPoems: null }),
+  clearPoet: () => set({ selectedPoet: null, poetPoems: null, poetFocus: null }),
+  toggleGifts: () => set((s) => ({ showGifts: !s.showGifts })),
   setSpeed: (speed) => set({ speed }),
   setFlyTarget: (flyTarget) => set({ flyTarget }),
 }));

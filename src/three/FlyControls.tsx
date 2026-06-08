@@ -5,6 +5,7 @@ import { useStore } from "../state/store";
 import { pullAt, COMMON_K } from "../engine/engineApi";
 import { loadPoetPoems } from "../data/load";
 import { pickTargets, SIZE_SCALE } from "./picking";
+import { spinXZ, unspinXZ } from "./galaxyParams";
 
 const BASE_SPEED = 140; // world units/sec at speed ×1 (slow, galactic feel)
 
@@ -46,7 +47,10 @@ export function FlyControls() {
       for (let i = 0; i < poets.length; i++) {
         const p = poets[i];
         if (hidden.has(p.dynasty)) continue;
-        const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+        // stored positions are LOCAL; rotate into world by the current galaxy spin so
+        // picking stays aligned with the rendered (spinning) stars.
+        const y = pos[i * 3 + 1];
+        const [x, z] = spinXZ(pos[i * 3], pos[i * 3 + 2]);
         const dist = Math.hypot(x - cp.x, y - cp.y, z - cp.z);
         // CSS-px glow radius, matching the shader's gl_PointSize formula
         const apparent = (Math.min(70, Math.max(1.2, (sizes[i] * SIZE_SCALE) / dist)) * 0.5) / dpr;
@@ -113,14 +117,17 @@ export function FlyControls() {
         const v = ndc(e.clientX, e.clientY);
         ray.current.setFromCamera(v, camera);
         const pt = ray.current.ray.origin.clone().addScaledVector(ray.current.ray.direction, 260);
+        // store the void point in the LOCAL galaxy frame so the poem is stable as the galaxy
+        // turns and the marker drifts with it. NO camera move on a void click (the glide-focus
+        // was inaccurate/disorienting) — just light the star where you clicked.
+        const [lx, lz] = unspinXZ(pt.x, pt.z);
         const s = st();
         s.selectPoem(
-          pullAt(s.form, [pt.x, pt.y, pt.z], {
+          pullAt(s.form, [lx, pt.y, lz], {
             lushiOnly: s.lushiFilter,
             commonK: s.commonOnly ? COMMON_K : undefined,
           }),
         );
-        s.setFlyTarget([pt.x, pt.y, pt.z]); // glide-focus on the captured void point
       }
     };
     const onWheel = (e: WheelEvent) => {
@@ -149,7 +156,10 @@ export function FlyControls() {
   useFrame((_, dt) => {
     const flyTarget = useStore.getState().flyTarget;
     if (flyTarget) {
-      const tv = new THREE.Vector3(...flyTarget);
+      // flyTarget is LOCAL (a poet position / canonical void point) — rotate it into world by
+      // the live spin so the camera homes onto the star as the galaxy turns.
+      const [fwx, fwz] = spinXZ(flyTarget[0], flyTarget[2]);
+      const tv = new THREE.Vector3(fwx, flyTarget[1], fwz);
       // approach from the camera's CURRENT side (no jarring swing): pull back along target→camera
       const back = new THREE.Vector3().subVectors(camera.position, tv);
       if (back.lengthSq() < 1) back.set(0, 0, 1);

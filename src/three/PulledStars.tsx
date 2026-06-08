@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useStore } from "../state/store";
+import { spinXZ } from "./galaxyParams";
 
 // Small, prominent, twinkling light spots where the user has pulled a poem out of the void —
 // "捕捉到一小片虚空" rather than a giant white ball. Lifecycle (animated in useFrame):
@@ -9,7 +10,7 @@ import { useStore } from "../state/store";
 //   • when more than ALIVE_CAP are alive, the OLDEST flickers out (twinkle → vanish) over FADE_OUT;
 //   • a spot too far from the camera is culled (perf). Gold = 格律-valid, pale blue = noise.
 const ALIVE_CAP = 20;
-const FADE_IN = 0.5; // s
+const FADE_IN = 0.14; // s — quick pop-in so a click reads as a flare, not a slow swell
 const FADE_OUT = 1.0; // s — fast flicker then gone
 const CULL_DIST = 1700; // world units from camera → retire
 const MAXBUF = 40; // GPU buffer capacity
@@ -95,7 +96,8 @@ export function PulledStars() {
     const cam = camera.position;
     for (const m of markers.current) {
       if (m.death === null) {
-        const dx = m.pos[0] - cam.x, dy = m.pos[1] - cam.y, dz = m.pos[2] - cam.z;
+        const [wx, wz] = spinXZ(m.pos[0], m.pos[2]); // LOCAL → WORLD (galaxy spin)
+        const dx = wx - cam.x, dy = m.pos[1] - cam.y, dz = wz - cam.z;
         if (dx * dx + dy * dy + dz * dz > CULL_DIST * CULL_DIST) m.death = t;
       }
     }
@@ -115,10 +117,15 @@ export function PulledStars() {
         alpha = Math.min(1, (t - m.birth) / FADE_IN);
       }
       const c = m.valid ? [1.0, 0.84, 0.4] : [0.78, 0.86, 1.0];
-      const b = alpha * 1.7;
-      obj.pos[n * 3] = m.pos[0];
+      // birth flare: a bright highlight on the first click that holds briefly then LINEARLY
+      // settles to the quiet base. Brightness only (size stays small) so it never becomes a
+      // giant ball — bloom turns the flash into a soft glow.
+      const flare = 1 + 3.0 * Math.max(0, 1 - (t - m.birth) / 2.5);
+      const b = alpha * 1.9 * flare;
+      const [wx, wz] = spinXZ(m.pos[0], m.pos[2]); // LOCAL → WORLD (galaxy spin)
+      obj.pos[n * 3] = wx;
       obj.pos[n * 3 + 1] = m.pos[1];
-      obj.pos[n * 3 + 2] = m.pos[2];
+      obj.pos[n * 3 + 2] = wz;
       obj.col[n * 3] = c[0] * b;
       obj.col[n * 3 + 1] = c[1] * b;
       obj.col[n * 3 + 2] = c[2] * b;

@@ -5,6 +5,7 @@ import { useStore } from "../state/store";
 import { getPoet, loadGifts } from "../data/load";
 import { DYNASTY_BY_KEY, DYNASTIES, DYNASTY_COUNT } from "../data/dynasties";
 import { poetPosition } from "./PoetStars";
+import { galaxySpin } from "./galaxyParams";
 import type { GiftEdge } from "../data/contract";
 
 // 赠诗 network: soft curved filaments between poets one dedicated a poem to (寄/赠/和/次韵…).
@@ -159,6 +160,9 @@ export function GiftLines() {
 
   useFrame((_, dt) => {
     mat.uniforms.uTime.value += dt;
+    // arcs are built from LOCAL poetPosition + the centre (the spin axis), so rotating the
+    // whole object by the shared spin keeps every endpoint glued to its (rotating) poet star.
+    if (object) object.rotation.y = galaxySpin.angle;
   });
 
   useEffect(() => {

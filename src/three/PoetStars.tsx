@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import { DYNASTY_BY_KEY, DYNASTIES, DYNASTY_COUNT, bandRadius, hashStr, R_MIN, R_MAX } from "../data/dynasties";
@@ -7,7 +7,7 @@ import { getPoets, type PoetRow } from "../data/load";
 import { FAMOUS_POETS } from "../data/famousPoets";
 import { useStore } from "../state/store";
 import { pickTargets } from "./picking";
-import { GALAXY, gauss3 } from "./galaxyParams";
+import { GALAXY, gauss3, galaxySpin } from "./galaxyParams";
 
 // Iconic poets → brighter + larger landmark stars (a sense of "明星" distinction).
 const FAMOUS = new Set(FAMOUS_POETS.map((f) => f.name));
@@ -124,8 +124,11 @@ export function PoetStars() {
     attr.needsUpdate = true;
   }, [hidden, built]);
 
+  const spinRef = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     (built.points.material as THREE.ShaderMaterial).uniforms.uTime.value += dt;
+    // rotate the whole poet layer (stars + labels) by the shared galaxy spin.
+    if (spinRef.current) spinRef.current.rotation.y = galaxySpin.angle;
   });
 
   // labels ONLY for the hovered + selected poet (no names floating in empty void)
@@ -143,7 +146,7 @@ export function PoetStars() {
   }
 
   return (
-    <group>
+    <group ref={spinRef}>
       <primitive object={built.points} />
       {shown.map((p) => {
         const isFocus = p.id === hoverId || p.id === selId;

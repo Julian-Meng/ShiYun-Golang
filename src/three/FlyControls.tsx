@@ -395,7 +395,8 @@ export function FlyControls() {
     // 引力: once inside the galaxy, orbit the camera WITH the spin (same Δ as the galaxy this
     // frame) so the stars hold still on screen — otherwise close-up stars drift tangentially
     // faster than you can click. Outside the sphere you watch it turn from afar.
-    if (useStore.getState().gravity) {
+    // 奇迹时刻: don't co-rotate the camera with the (now-frozen) spin; manual look/fly still works.
+    if (useStore.getState().gravity && !useStore.getState().cinema) {
       const cp = camera.position;
       if (cp.x * cp.x + cp.y * cp.y + cp.z * cp.z < GRAVITY_R * GRAVITY_R) {
         const dA = SPIN_RATE * dt; // matches advanceSpin(dt) in Galaxy

@@ -47,6 +47,7 @@ export function PoetPanel() {
   const close = useStore((s) => s.clearPoet);
   const pulseAt = useStore((s) => s.pulseAt);
   const lockPoem = useStore((s) => s.lockPoem);
+  const openCinema = useStore((s) => s.toggleCinema);
 
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [shown, setShown] = useState(PAGE);
@@ -123,6 +124,9 @@ export function PoetPanel() {
         <span className="poet-name" style={{ color: dyn?.color }}>{poet.name}</span>
         <span className="poet-sub">
           {dyn?.label ?? poet.dynasty} · {poet.poemCount} 首真实作品 <ShareButton />
+          <button className="cinema-btn" onClick={openCinema} title="框成一张可截图分享的卡片（时间暂停;展开一首诗后可框住那首）">
+            📷 奇迹时刻
+          </button>
         </span>
       </div>
       {poems === null ? (

@@ -17,6 +17,7 @@ import { GiftRoam } from "./ui/GiftRoam";
 import { SettingsMenu } from "./ui/SettingsMenu";
 import { PoemHoverLabel } from "./ui/PoemHoverLabel";
 import { Onboarding } from "./ui/Onboarding";
+import { Cinema } from "./ui/Cinema";
 import { useStore } from "./state/store";
 import { applyHash, syncHash } from "./state/permalink";
 import { loadData } from "./data/load";
@@ -35,6 +36,7 @@ export default function App() {
   const selected = useStore((s) => s.selected);
   const selectedPoet = useStore((s) => s.selectedPoet);
   const uiHidden = useStore((s) => s.uiHidden);
+  const cinema = useStore((s) => s.cinema);
 
   useEffect(() => {
     loadData()
@@ -98,7 +100,7 @@ export default function App() {
         )}
       </Canvas>
 
-      {!uiHidden && (
+      {!uiHidden && !cinema && (
         <>
           <HUD />
           <SettingsMenu />
@@ -109,6 +111,9 @@ export default function App() {
           <PoetPanel />
         </>
       )}
+
+      {/* 奇迹时刻: framed share card over the frozen scene (hides the normal UI; keeps camera composable) */}
+      {cinema && <Cinema />}
 
       {loaded && <Onboarding />}
 

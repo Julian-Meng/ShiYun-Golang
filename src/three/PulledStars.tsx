@@ -75,6 +75,8 @@ export function PulledStars() {
   }, []);
 
   useFrame((_, dt) => {
+    // 奇迹时刻: freeze the marker clock → a void-pull spot never dissipates / flickers out mid-screenshot.
+    if (useStore.getState().cinema) return;
     clock.current += Math.min(dt, 0.05);
     const t = clock.current;
     obj.m.uniforms.uTime.value = t;

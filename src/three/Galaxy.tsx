@@ -244,6 +244,9 @@ export function Galaxy() {
   }, [built]);
 
   useFrame((_, dt) => {
+    // 奇迹时刻: freeze the shared spin clock → the whole scene (poets, arcs, markers all read
+    // galaxySpin.angle) holds still for a clean screenshot.
+    if (useStore.getState().cinema) return;
     // single owner of the shared spin clock (Galaxy mounts at boot, before the poet layer);
     // everyone else just reads galaxySpin.angle.
     advanceSpin(dt);

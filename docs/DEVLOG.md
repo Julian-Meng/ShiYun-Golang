@@ -10,6 +10,46 @@ real GPU. Data dirs (`poems/`, `lines/`) are git-ignored — see HANDOFF "data p
 
 ---
 
+## 2026-06-09 — Session: 7th agent · round 2 (奇迹时刻 share card + 手机面板默认折叠 + 寻路修复/增强)
+
+Follow-ups on the same worktree after the user tested on a real phone. Verify gate green: tsc + vite build
++ **89 tests**. (Commits: `8acb449` mobile-collapse; this round's cinema + gift-path on top.)
+
+### 1 — 手机端面板默认折叠成底部提示条 (`ui/useSheet.ts` NEW)
+- On a phone a selection (诗人 / 虚空诗) or search result opened a FULL-screen bottom sheet that covered the
+  galaxy. Now on coarse-pointer devices the data panels default to a slim **bottom peek bar** (one-line
+  summary + 「▲ 展开」); tap to open the full sheet, 「▾ 收起」 to re-collapse. `useSheet(resetKey)` re-collapses
+  on each new selection. SearchPanel starts collapsed to its tab row (tapping a tab expands). Desktop
+  unchanged (peek only renders on `COARSE`). `PoetPanel` / `PoemPanel` / `SearchPanel` + the `.sheet-peek` CSS.
+
+### 2 — 奇迹时刻 / cinema share card (`ui/Cinema.tsx` NEW)
+- A 📷 button (poem + poet panels) enters a **framed share card over the FROZEN scene** to guide a screenshot.
+  `store.cinema` pauses ALL auto-animation — the galaxy spin (`Galaxy` skips `advanceSpin`), the void-pull
+  lifecycle (`PulledStars` early-returns → markers never dissipate, per the user's ask), the highlight
+  flash/fade (`PoemOrbits` freezes `poemClock`), and the gravity co-rotation (`FlyControls`). The overlay is
+  a gold 相框 (border + corner ornaments + vignette) + a concept TAGLINE (5 options, cycled with ‹ ›,
+  emphasising the 诗云 / 巴别图书馆 idea) + the framed poem with its full 全集编号 (「它在诗云里的唯一住址」) +
+  the 诗云 brand. It is `pointer-events:none` except its controls, so you can still drag the camera THROUGH
+  it to compose, then shoot. Manual camera input stays live during the freeze; only auto-motion stops.
+
+### 3 — 寻路 (path-find) bug fix + bidirectional + 100 hops (`data/giftGraph.ts`, `three/GiftTrail.tsx`, `ui/GiftRoam.tsx`)
+- **The reported bug** (李白↔王安石 連線 looked wrong): two real issues — (a) BFS was **direction-sensitive**
+  (李白→王安石 returned a different intermediary than 王安石→李白, both valid 2-hops → felt random), and (b) the
+  gold 足迹 (manual roaming breadcrumb) and the cyan 路径 line coexisted and contradicted each other on screen.
+  Verified against the data: 王安石 has NO 韩愈 edge (the screenshot 足迹 was actually 王安石→俞律, a real
+  neighbour) — so the path-find itself was already correct; the confusion was the asymmetry + the two lines.
+- **Fix**: `giftPath` is now **deterministic + symmetric** — it searches from the canonical (smaller-id)
+  endpoint with a weight-sorted expansion order, so A→B and B→A return the SAME chain (oriented to the
+  caller) and a stronger relationship wins ties. Verified on real data: 李白↔王安石 = 李白→黄庭坚→王安石 both
+  ways; 纳兰性德→李白 = 纳兰性德→李之仪→苏轼→李白 (3 hops). The gold 足迹 line is now **suppressed while a 路径
+  result is shown** (cyan path is the focus) and only ever draws **real edges** (`giftAdjacent` guard → never
+  a fake straight line between unconnected poets).
+- **Task 3**: path budget **10 → 100 hops** (already UNDIRECTED — any 赠诗 relationship connects regardless of
+  giver/receiver; confirmed). >100 hops → 无法链接 as before. The 足迹/return-line MEMORY stays a separate,
+  unchanged ≤10 cap (`store.hopToPoet`).
+
+---
+
 ## 2026-06-09 — Session: 7th agent (性能优化 + 移动端适配 — touch-fly/pinch, auto-quality, dpr cap, responsive bottom-sheets)
 
 Cut from `main` @ `59103ed`. Provisioned `poems/`+`lines/`+`search/` via junction to `main/public/data`

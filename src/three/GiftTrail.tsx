@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useStore } from "../state/store";
 import { getPoet } from "../data/load";
+import { giftAdjacent } from "../data/giftGraph";
 import { poetPosition } from "./positions";
 import { galaxySpin } from "./galaxyParams";
 
@@ -20,11 +21,15 @@ const _c1 = new THREE.Vector3();
 const _c2 = new THREE.Vector3();
 const _v = new THREE.Vector3();
 
-/** Sample the bundled Bézier polyline through a poet-id path into a LineSegments geometry. */
-function buildPathGeo(ids: string[]): THREE.BufferGeometry | null {
+/** Sample the bundled Bézier polyline through a poet-id path into a LineSegments geometry. When
+ *  `realEdgesOnly` (the 足迹 line), a segment is skipped unless the two poets actually share a 赠诗 edge,
+ *  so the gold trail can never draw a straight line between two unconnected poets. The cyan 路径 line
+ *  passes false — its segments are real edges by construction (BFS over the gift graph). */
+function buildPathGeo(ids: string[], realEdgesOnly = false): THREE.BufferGeometry | null {
   if (ids.length < 2) return null;
   const pos: number[] = [], ts: number[] = [], segs: number[] = [];
   for (let e = 0; e < ids.length - 1; e++) {
+    if (realEdgesOnly && !giftAdjacent(ids[e], ids[e + 1])) continue;
     const pf = getPoet(ids[e]);
     const pt = getPoet(ids[e + 1]);
     if (!pf || !pt) continue;
@@ -82,10 +87,14 @@ export function GiftTrail() {
   const goldMat = useMemo(() => makeMat(1.0, 0.78, 0.34, true), []);
   const cyanMat = useMemo(() => makeMat(0.32, 0.85, 1.0, false), []);
 
+  // while a 路径查找 result is on screen, the cyan path is the focus → don't also draw the gold roaming
+  // trail (it's a separate manual breadcrumb and reads as a contradictory "wrong" line next to the path).
+  const pathActive = !!(pathResult && pathResult.length > 1);
   const trailObj = useMemo(() => {
-    const g = buildPathGeo(trail);
+    if (pathActive) return null;
+    const g = buildPathGeo(trail, true); // 足迹: real edges only (never a fake straight line)
     return g ? new THREE.LineSegments(g, goldMat) : null;
-  }, [trail, goldMat]);
+  }, [trail, goldMat, pathActive]);
   const pathObj = useMemo(() => {
     const g = pathResult && pathResult.length > 1 ? buildPathGeo(pathResult) : null;
     return g ? new THREE.LineSegments(g, cyanMat) : null;

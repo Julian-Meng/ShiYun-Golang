@@ -199,7 +199,8 @@ export function PoemOrbits() {
   }, []);
 
   useFrame((_, dt) => {
-    poemClock.t += Math.min(dt, 0.05); // advance the shared self-rotation + lifecycle clock
+    // 奇迹时刻: freeze the poem clock → planet self-rotation + the highlight flash/fade lifecycle hold.
+    if (!useStore.getState().cinema) poemClock.t += Math.min(dt, 0.05); // advance self-rotation + lifecycle clock
     const t = poemClock.t;
     const grp = groupRef.current;
     if (grp) grp.rotation.y = galaxySpin.angle;

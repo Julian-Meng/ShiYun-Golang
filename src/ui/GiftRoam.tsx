@@ -5,7 +5,10 @@ import { ensureGiftGraph, giftLinks, giftPath, dedicationPoemIdx, giftGraphReady
 import { poemPosition } from "../three/positions";
 
 const MAX_LINKS = 40; // cap the link list for hub poets (苏轼/白居易 have many) — strongest first
-const MAX_HOPS = 10; // BFS budget for 赠诗 path search (the graph is tiny; safely raisable)
+// BFS budget for 路径查找: raised 10→100. The graph is tiny so it's microseconds; a bigger budget means
+// almost any two related poets connect (undirected — any 赠诗 relationship counts). >100 hops → 无法链接,
+// same as before. (The 足迹/return-line memory is a SEPARATE, unchanged ≤10 cap — see store.hopToPoet.)
+const MAX_HOPS = 100;
 
 // travel to a poet along a 赠诗 edge: append to the trail + lock-follow, then load its poems.
 function hop(poet: PoetRow) {

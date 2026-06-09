@@ -7,6 +7,12 @@ Inspired by 刘慈欣《诗云》 + 博尔赫斯《巴别图书馆》: a roamabl
 is a star and the void between them is **every possible poem**, pulled out on click — *computed,
 never stored* (every poem ⇄ a big-integer index, bijectively).
 
+> **▶ Status (2026-06-09, after the 7th agent):** engine · data · galaxy · search · 赠诗网络 · **移动端/触控
+> · 性能(自适应画质+dpr) · 手机面板折叠 · 奇迹时刻分享卡 · 寻路修复** are all DONE + verified (build + 89 tests).
+> Feature work is effectively complete. **Your job, next agent, is DEPLOY** — ship it to a static host so
+> the永久链接/分享 features come alive. See §6 「⏭ Next — deploy」: **decide the fuzzy-index (`linesf/`)
+> hosting strategy FIRST** (simplest: drop it on deploy — it's a fallback and `load.ts` no-ops if absent).
+
 ---
 
 ## ⚠ Canonical base — READ BEFORE BRANCHING (worktree hand-off)
@@ -96,11 +102,13 @@ thing that breaks the hosting model; all index math + render is client-side).
 | **新诗 / modern** | yuxqiu/modern-poetry contemporary set (Apache-2.0) folded in: +4,494 free-verse poems / +508 poets (徐志摩《再别康桥》, 海子, 北岛, 顾城, 戴望舒…). Free verse → form `other`; 民国→近现代 else 当代; their lines are searchable. |
 | **诗云设置菜单** | HUD **⚙设置** (`store.settingsOpen`) → `ui/SettingsMenu.tsx` collects 指引 / 行星 / 赠诗 / 引力 (moved out of the top bar) + 恢复默认. |
 | **行星指引线设置** | `store.guideMode` (off/flash/hold) × `guideCoverage` (all=每首不漏 / optimized=采样) × `guideSeconds` (flash 时长). In the settings menu. `three/PoemGuides.tsx`. |
-| **赠诗漫游** | `ui/GiftRoam.tsx` (when 赠诗 on): **往来** list (click → fly across) + **3D arc click** (`FlyControls` ego-net CPU pick, hover-highlights `store.giftHoverId` + 22–26px generous range → easy to hit) + **足迹** breadcrumb with PERSISTENT gold **return lines** (`three/GiftTrail.tsx`, ≤10) + **路径查找** (typed `searchPoets` or 选中 endpoints; BFS ≤10 hops; cyan 3D highlight; `store.pathDimEgo` 弱化往来线). Hop = `store.hopToPoet`. Graph/BFS/dedication = `data/giftGraph.ts`. |
+| **赠诗漫游** | `ui/GiftRoam.tsx` (when 赠诗 on): **往来** list (click → fly across) + **3D arc click** (`FlyControls` ego-net CPU pick, hover-highlights `store.giftHoverId` + 22–26px generous range → easy to hit) + **足迹** breadcrumb with PERSISTENT gold **return lines** (`three/GiftTrail.tsx`, ≤10) + **路径查找** (typed `searchPoets` or 选中 endpoints; BFS **≤100 hops, undirected, deterministic+symmetric** — 7th-agent fix: A→B == reverse(B→A), stronger edge wins ties; cyan 3D highlight that suppresses the gold 足迹 line while shown; `store.pathDimEgo` 弱化往来线). Hop = `store.hopToPoet`. Graph/BFS/dedication = `data/giftGraph.ts`. |
 | **选中诗人增强** | Selected poet's planets HOLD the bright/large highlight for the whole selection (easier GPU pick) + hover a planet → 《title》 tooltip (`store.hoverPoem`, `ui/PoemHoverLabel`). `three/PoemOrbits.tsx`. |
 | **移动端 / 触控** (7th) | `FlyControls` `pointers`-Map state machine: 1-finger drag = 转向, **2-finger drag = 飞行, 2-finger pinch = 调速/缩放**, tap = 选中 — reuses the desktop camera math. `canvas{touch-action:none}` + `viewport-fit=cover` + `overscroll-behavior:none`. Pure gesture math + pan/pinch mode-lock in `three/touchGesture.ts` (unit-tested). Hover-pick skipped on touch (no hover + a GPU stall). `pointercancel` + finger-transition reseed handled. |
 | **自适应画质 / 性能** (7th) | `three/detectQuality.ts` (`COARSE`/`WEAK`, evaluated once at load): weak/touch devices default `画质·低` + cap `dpr` to 1.5 + bloom off, and the ~857k-point `行星·全部` layer is gated off (manual 画质 toggle still forces 高). |
 | **响应式布局** (7th) | One `@media(max-width:600px)`: transient panels → 全宽 bottom-sheets; 搜索 stays top tracking a live `--hud-h` (ResizeObserver); HUD wraps/trims; 16px inputs (no iOS zoom-on-focus); `dvh` + `env(safe-area-inset-*)`; ≥40px tap targets on coarse pointers. |
+| **手机面板折叠** (7th) | On touch, 诗人/虚空诗 panels + 搜索 default to a bottom **peek bar** (一行摘要 + 「▲ 展开」); tap to open, 「▾ 收起」 back. Re-collapses per new selection. Never auto-covers the galaxy. `ui/useSheet.ts` + `.sheet-peek`. Desktop unchanged. |
+| **奇迹时刻 / 分享卡** (7th) | 📷 button (诗/诗人面板) → a framed share card over the **FROZEN** scene (spin + void-pull + highlight lifecycles paused; manual camera still composable) with a cyclable concept tagline + the poem + its 全集编号, to guide a screenshot. `ui/Cinema.tsx`, `store.cinema`. |
 
 Three pull modes to feel the project: plain random「牛蝛茙漂綵」→ 格律「趰㵎憣烔岆」→ 格律+常用字
 「思伦要锁馆」; plus 自由格式 for 词-like变行, and the 诗句 tab to find a real poem from one line.

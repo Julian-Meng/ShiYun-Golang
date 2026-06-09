@@ -13,6 +13,7 @@ const FORM_LABEL: Record<string, string> = {
 export function PoemPanel() {
   const selected = useStore((s) => s.selected);
   const close = useStore((s) => s.clearSelection);
+  const openCinema = useStore((s) => s.toggleCinema);
   const sheet = useSheet(selected?.babelIndex ?? null);
   if (!selected) return null;
   const isFree = selected.form === "ziyou";
@@ -79,6 +80,9 @@ export function PoemPanel() {
           : `这首诗一直在诗云里，编号 ${selected.babelDigits} 位长 —— 地址几乎和诗本身一样长。`}
         <div className="poem-share">
           <ShareButton />
+          <button className="cinema-btn" onClick={openCinema} title="把这首诗框成一张可截图分享的卡片（时间暂停）">
+            📷 奇迹时刻
+          </button>
         </div>
       </div>
     </div>

@@ -43,8 +43,8 @@ hand-off is broken — fix `main` first.** Check with `git log --oneline --all -
 bundle at `C:\Users\Cohen\Desktop\shiyun-ALL-branches-backup.bundle` (restore: `git clone <bundle>`).
 
 > 🖥 **Live preview is port 5199 (`vite.config` strictPort).** The user watches `http://localhost:5199`
-> directly — **do NOT load the in-conversation preview MCP.** At this hand-off 5199 is served by the 6th-agent
-> worktree `nifty-kirch-35a544`. To take it over from YOUR worktree: (1) provision data (junction `poems/`
+> directly — **do NOT load the in-conversation preview MCP.** At this hand-off 5199 is served by the 7th-agent
+> worktree `blissful-mestorf-a5a3a2`. To take it over from YOUR worktree: (1) provision data (junction `poems/`
 > `lines/` `search/` from `main/public/data`, `linesf/` from a sibling — see the data note above); (2) free the
 > port (`Get-NetTCPConnection -LocalPort 5199 -State Listen` → `Stop-Process -Id <pid> -Force` on the old vite);
 > (3) `npm install` (fresh worktree has no node_modules) then `npm run dev`. Verify changes with build/tests +
@@ -56,8 +56,8 @@ bundle at `C:\Users\Cohen\Desktop\shiyun-ALL-branches-backup.bundle` (restore: `
 
 ```bash
 npm install
-npm run dev        # vite → http://localhost:5173
-npm test           # vitest: 57 tests (47 engine + 6 GPU-pick + 4 engineApi compose round-trip)
+npm run dev        # vite → http://localhost:5199 (strictPort)
+npm test           # vitest: 89 tests (47 engine + 6 engineApi + 4 load + 11 GPU-pick + 21 touch-gesture)
 npm run deploy:build  # build + precompress for a static host (see docs/DEPLOY.md) — Range-safe
 npm run build      # tsc --noEmit && vite build  (the real verify gate)
 npm run typecheck
@@ -98,6 +98,9 @@ thing that breaks the hosting model; all index math + render is client-side).
 | **行星指引线设置** | `store.guideMode` (off/flash/hold) × `guideCoverage` (all=每首不漏 / optimized=采样) × `guideSeconds` (flash 时长). In the settings menu. `three/PoemGuides.tsx`. |
 | **赠诗漫游** | `ui/GiftRoam.tsx` (when 赠诗 on): **往来** list (click → fly across) + **3D arc click** (`FlyControls` ego-net CPU pick, hover-highlights `store.giftHoverId` + 22–26px generous range → easy to hit) + **足迹** breadcrumb with PERSISTENT gold **return lines** (`three/GiftTrail.tsx`, ≤10) + **路径查找** (typed `searchPoets` or 选中 endpoints; BFS ≤10 hops; cyan 3D highlight; `store.pathDimEgo` 弱化往来线). Hop = `store.hopToPoet`. Graph/BFS/dedication = `data/giftGraph.ts`. |
 | **选中诗人增强** | Selected poet's planets HOLD the bright/large highlight for the whole selection (easier GPU pick) + hover a planet → 《title》 tooltip (`store.hoverPoem`, `ui/PoemHoverLabel`). `three/PoemOrbits.tsx`. |
+| **移动端 / 触控** (7th) | `FlyControls` `pointers`-Map state machine: 1-finger drag = 转向, **2-finger drag = 飞行, 2-finger pinch = 调速/缩放**, tap = 选中 — reuses the desktop camera math. `canvas{touch-action:none}` + `viewport-fit=cover` + `overscroll-behavior:none`. Pure gesture math + pan/pinch mode-lock in `three/touchGesture.ts` (unit-tested). Hover-pick skipped on touch (no hover + a GPU stall). `pointercancel` + finger-transition reseed handled. |
+| **自适应画质 / 性能** (7th) | `three/detectQuality.ts` (`COARSE`/`WEAK`, evaluated once at load): weak/touch devices default `画质·低` + cap `dpr` to 1.5 + bloom off, and the ~857k-point `行星·全部` layer is gated off (manual 画质 toggle still forces 高). |
+| **响应式布局** (7th) | One `@media(max-width:600px)`: transient panels → 全宽 bottom-sheets; 搜索 stays top tracking a live `--hud-h` (ResizeObserver); HUD wraps/trims; 16px inputs (no iOS zoom-on-focus); `dvh` + `env(safe-area-inset-*)`; ≥40px tap targets on coarse pointers. |
 
 Three pull modes to feel the project: plain random「牛蝛茙漂綵」→ 格律「趰㵎憣烔岆」→ 格律+常用字
 「思伦要锁馆」; plus 自由格式 for 词-like变行, and the 诗句 tab to find a real poem from one line.
@@ -221,15 +224,35 @@ npm run build:fuzzy                                       # linesf/ — 异文 f
 - **Real-GPU knobs**: `positions.poemSystemRadius` / `poemOffset` (ellipsoid+jitter+power) / `poemOmega` (spin rate);
   `PoemOrbits` highlight `makeLayer(bright/sizeScale/maxPx)` + `HOLD`/`FADE_*`; `FlyControls` lock `dist`/`k`.
 
-### ⏭ Next — mobile + productization (user's next phase)
-- **Mobile / touch** — `FlyControls` is mouse+keyboard only → single-finger drag-look, two-finger pinch/push, tap-pick.
-  Auto `画质·低` + disable bloom + cap/disable 行星-ON on mobile (devicePixelRatio / GPU sniff). Responsive panels
-  (bottom-sheet on narrow screens). First-paint already ≤1.3 MB. Lock orbit already works with drag/wheel — map to touch.
-- **Fuzzy index for DEPLOY** — `linesf/` is ~GBs (delete-1 over all lines) — fine locally, too big to host. For deploy:
-  build a CURATED fuzzy set (唐诗三百首 / 高频名篇), OR a server-side fuzzy, OR ship `linesf/` brotli'd behind a flag.
-  The 4096-shard split keeps per-query load ~MB, but total hosting cost is the open question.
-- **Deploy** — `npm run deploy:build` kit is ready (brotli + Range on `poems/*.json`); ship to a static host. Decide
-  the fuzzy strategy first (above).
+### ✅ DONE — mobile / touch + performance (7th agent — verified build + 89 tests; real-device touch is the user's eyeball)
+- **Mobile / touch** — `FlyControls` now drives a `pointers`-Map state machine: 1-finger drag = look, **2-finger
+  drag = fly, 2-finger pinch = speed/zoom**, tap = pick (reuses the desktop camera math). `canvas{touch-action:none}`
+  + `viewport-fit=cover` (dropped `maximum-scale`) + `overscroll-behavior:none` gate it. Pure gesture math +
+  mode-lock in `src/three/touchGesture.ts` (unit-tested). See DEVLOG 7th-agent §3.
+- **Auto-quality + dpr** — `src/three/detectQuality.ts` (`COARSE`/`WEAK`, module-load) → `store.quality` defaults
+  `low` on weak/touch devices, `dpr` caps at 1.5, bloom off, and the 857k-point 行星·全部 layer is gated off on
+  weak devices (the manual 画质 toggle still forces high). DEVLOG §1–2.
+- **Responsive** — one `@media(max-width:600px)`: bottom-sheet panels, top search tracking a live `--hud-h`,
+  wrapped/trimmed HUD, 16px inputs, dvh + safe-area. DEVLOG §4.
+
+### ⏭ Next — deploy (the remaining productization phase)
+- **Fuzzy index for DEPLOY (decide FIRST)** — `linesf/` is ~GBs (delete-1 over all lines) — fine locally, too big
+  to host. Options: drop it on deploy (it's a fallback; `load.ts` no-ops if absent), build a CURATED set (唐诗三百首 /
+  高频名篇), OR ship `linesf/` brotli'd behind a flag. `lines/` 791 MB + `search/` 129 MB + `poems/` 235 MB also need a
+  host plan (object storage / CDN — `loadData(base)` + the `load.ts` fetch helpers are already `base`-parameterized,
+  but add a `VITE_DATA_BASE` knob so it's one place; watch CORS + that the host honours **Range** on raw `poems/*.json`).
+- **Deploy** — `npm run deploy:build` kit is ready (brotli + Range on `poems/*.json` kept RAW); pick a host that honours
+  byte ranges (nginx/Caddy/Cloudflare Pages+R2 over GH-Pages/Netlify). Decide the fuzzy strategy first.
+
+### ⏭ Also worth a focused follow-up (deferred from the 7th-agent perf round, all low-risk)
+- **`FlyControls` `useFrame` allocation hoist** — ~6–9 `new THREE.Vector3()/Matrix4()/Quaternion()` per frame on the
+  lock/flyTarget/WASD hot paths → GC sawtooth on weak GPUs. Hoist to module/ref temps. (Deferred to not collide with
+  this round's touch edits in the same `useFrame`.)
+- **`prefers-reduced-motion`** on the perpetual galaxy spin (battery/a11y) + optional `frameloop="demand"`.
+- **`webglcontextlost`/`restored`** (iOS drops the GL context on backgrounding → black galaxy on return) — needs a
+  real device to reproduce + a forced rebuild-key.
+- **No dedicated vertical-touch gesture** — climbing out of the disc works via pitch-up + forward-thrust (thrust is
+  camera-space), but there's no straight up/down touch control. Add a 3rd-finger axis or HUD up/down if wanted.
 
 **DONE — UX iteration round 5 (verified: build + 57/57 + DOM mount; centre confirmed 够散/漂亮 by the user on a real GPU):**
 - ✅ **造诗 placeholder simplified** — the long hint clipped in the 320px panel; placeholder is now 「粘贴整首诗…」 and the

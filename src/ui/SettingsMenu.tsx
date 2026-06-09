@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../state/store";
+import { COARSE, WEAK } from "../three/detectQuality";
 
 // 诗云设置 menu — collects the 指引 / 行星 / 赠诗 / 引力 controls (moved out of the HUD top bar). Opened by
 // the HUD ⚙设置 button. 赠诗漫游 stays a separate panel (it only shows when 赠诗 is on). 恢复默认 = the
@@ -31,7 +32,13 @@ export function SettingsMenu() {
 
   // DRAGGABLE (item 2): default below the top bar + left of the right-side panels (诗人/诗 panels), so it
   // never traps behind them — drag the header to move it anywhere and watch the effect live.
-  const [pos, setPos] = useState({ x: 360, y: 56 });
+  // clamp the initial position into the viewport (a 360px default sits off-screen on a phone). On mobile
+  // the responsive CSS overrides this into a bottom sheet via !important, so the inline x/y only matter on
+  // desktop / tablet widths — but keep it on-screen there too.
+  const [pos, setPos] = useState(() => ({
+    x: Math.max(4, Math.min(360, (typeof window !== "undefined" ? window.innerWidth : 1200) - 312)),
+    y: 56,
+  }));
   const dragRef = useRef<{ ox: number; oy: number } | null>(null);
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -62,7 +69,10 @@ export function SettingsMenu() {
     <div className="settings" style={{ left: pos.x, top: pos.y, right: "auto" }}>
       <div
         className="set-head drag"
-        onPointerDown={(e) => (dragRef.current = { ox: e.clientX - pos.x, oy: e.clientY - pos.y })}
+        onPointerDown={(e) => {
+          if (COARSE) return; // dragging is a no-op on the CSS-pinned mobile sheet → don't arm it
+          dragRef.current = { ox: e.clientX - pos.x, oy: e.clientY - pos.y };
+        }}
       >
         <span>诗云设置 ⠿</span>
         <button className="set-close" onClick={toggleSettings} title="关闭">×</button>
@@ -118,9 +128,16 @@ export function SettingsMenu() {
 
       <div className="set-group">
         <div className="set-label">显示层</div>
-        <label className="set-toggle">
-          <input type="checkbox" checked={showAllPoems} onChange={toggleAllPoems} />
-          行星 · 全部诗人的作品环绕（建议高性能）
+        <label className="set-toggle" style={WEAK && !showAllPoems ? { opacity: 0.5 } : undefined}>
+          <input
+            type="checkbox"
+            checked={showAllPoems}
+            onChange={toggleAllPoems}
+            disabled={WEAK && !showAllPoems}
+          />
+          {WEAK && !showAllPoems
+            ? "行星 · 全部作品环绕（弱设备已禁用,避免卡死）"
+            : "行星 · 全部诗人的作品环绕（建议高性能）"}
         </label>
         <label className="set-toggle">
           <input type="checkbox" checked={showGifts} onChange={toggleGifts} />

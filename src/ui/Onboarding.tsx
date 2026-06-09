@@ -1,8 +1,15 @@
 import { useState } from "react";
+import { COARSE } from "../three/detectQuality";
 
 // First-run guide: shown ONCE per browser (localStorage), skippable. Clearing site data shows it
 // again. Purely client-side — no account, no backend.
 const KEY = "shiyun_onboarded_v1";
+
+// the controls hint adapts to the device: the desktop .hint bar (WASD/拖拽/滚轮) is hidden on mobile, so
+// touch users learn the gesture scheme here instead.
+const CONTROLS = COARSE
+  ? "单指拖动转向、双指拖动飞行、双指捏合缩放调速;轻点星即可选中。"
+  : "WASD 飞行、拖拽转向、滚轮调速;按 H 可隐藏全部界面截图。";
 
 const STEPS: { t: string; d: string }[] = [
   {
@@ -15,7 +22,7 @@ const STEPS: { t: string; d: string }[] = [
   },
   {
     t: "探诗 · 寻诗 · 朝代",
-    d: "「探诗」里逐字填诗或写自由诗,立刻得到它的编号;「寻诗」能按诗句、诗名或单字找出真实的诗。WASD 飞行、拖拽转向、滚轮调速;按 H 可隐藏全部界面截图。",
+    d: `「探诗」里逐字填诗或写自由诗,立刻得到它的编号;「寻诗」能按诗句、诗名或单字找出真实的诗。${CONTROLS}`,
   },
 ];
 

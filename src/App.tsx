@@ -20,6 +20,13 @@ import { Onboarding } from "./ui/Onboarding";
 import { useStore } from "./state/store";
 import { applyHash, syncHash } from "./state/permalink";
 import { loadData } from "./data/load";
+import { WEAK } from "./three/detectQuality";
+
+// dpr is keyed to the INITIAL device seed, not the live 画质 toggle: dpr 1→2 quadruples the additive
+// fragment work (the dominant cost), so weak/mobile GPUs cap at 1.5. It must NOT respond to the runtime
+// toggle — changing a Canvas's dpr forces a GL context resize/flash. Bloom (below) toggles live; that's
+// safe. gpuPick reads gl.getPixelRatio() at pick time, so a capped dpr never breaks picking.
+const DPR_MAX = WEAK ? 1.5 : 2;
 
 export default function App() {
   const loaded = useStore((s) => s.loaded);
@@ -61,7 +68,7 @@ export default function App() {
     <div className="app">
       <Canvas
         camera={{ position: [700, 4600, 4600], fov: 55, near: 0.1, far: 18000 }}
-        dpr={[1, 2]}
+        dpr={[1, DPR_MAX]}
         gl={{ antialias: false, powerPreference: "high-performance" }}
         onCreated={({ camera }) => camera.lookAt(0, 0, 0)}
       >
@@ -108,7 +115,7 @@ export default function App() {
       {!loaded && (
         <div className="loading-screen">
           <div className="ls-title">诗云</div>
-          <div className="ls-sub">正在点亮 29,300 位诗人…</div>
+          <div className="ls-sub">正在点亮 29,808 位诗人…</div>
         </div>
       )}
     </div>

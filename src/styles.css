@@ -21,6 +21,8 @@ body,
   background: var(--ink);
   color: var(--fg);
   overflow: hidden;
+  /* kill pull-to-refresh / overscroll glow so a downward swipe over the galaxy doesn't reload the app */
+  overscroll-behavior: none;
 }
 .app {
   position: fixed;
@@ -31,6 +33,10 @@ canvas {
   /* the OS crosshair cursor sits at the actual click/aim point — no separate centre sprite (that
      conflicted with the real cursor; picking happens at the cursor, not screen centre). */
   cursor: crosshair;
+  /* touch: the browser must NOT treat finger drags over the GL surface as scroll/zoom/pull-to-refresh,
+     or it fires pointercancel mid-gesture before look/fly ever runs. Panels keep the default (auto) so
+     their lists still scroll. This is THE prerequisite for all touch input (FlyControls). */
+  touch-action: none;
 }
 
 /* floating poet labels (drei Html) */
@@ -1459,4 +1465,160 @@ canvas {
 .poet-panel::-webkit-scrollbar-track,
 .poem-panel::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MOBILE / NARROW-SCREEN ADAPTATION (≤600px)
+   The desktop layout is a set of fixed-width floating panels (340–384px) anchored
+   right:24px / left:20px / top:50% — every one overflows a ~360–430px phone, and the
+   10-control HUD row needs ~1170px with no wrap. This block:
+   • wraps + trims + safe-area-pads the HUD (top & bottom bars)
+   • turns the transient panels (诗/诗人/设置/赠诗漫游) into full-width bottom sheets
+   • keeps the always-present 搜索 panel at the top, full-width, below the wrapped HUD
+   • bumps inputs to 16px (iOS won't zoom-on-focus) + tap targets to ≥44px (pointer:coarse)
+   • swaps vh max-heights to a vh→dvh cascade (iOS dynamic-toolbar safe)
+   All verifiable headless via build + responsive-viewport DOM checks.
+   ════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  /* bottom sheets slide up (the desktop `rise` keyframe assumed translateY(-50%) centring) */
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+  }
+
+  /* ── HUD top bar: wrap, compact, safe-area; drop desktop-only chrome ── */
+  .hud-top {
+    gap: 8px;
+    padding: calc(8px + env(safe-area-inset-top)) 10px 8px;
+    flex-wrap: wrap;
+  }
+  .title {
+    font-size: 17px;
+    letter-spacing: 0.1em;
+  }
+  /* the English subtitle, the poet/poem stat, and the screenshot-mode toggle are desktop affordances */
+  .title-en,
+  .stat,
+  .ui-hide-btn {
+    display: none;
+  }
+  .seg-btn {
+    padding: 7px 11px;
+  }
+  .filter {
+    padding: 7px 11px;
+  }
+
+  /* ── HUD bottom: the hint describes WASD/拖拽/滚轮 (wrong on touch) → hide; keep the speed readout ── */
+  .hud-bottom {
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  }
+  .hint {
+    display: none;
+  }
+
+  /* ── transient overlays → full-width bottom sheets (collision-free with the top HUD) ── */
+  .poem-panel,
+  .poet-panel,
+  .settings,
+  .giftroam {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    /* NOT !important: an !important element transform would beat the sheet-up keyframe (spec: important
+       declarations win over animations) and kill the slide. Plain `none` still overrides the base
+       translateY(-50%) by later source order, and lets sheet-up animate transform → none on entry. */
+    transform: none;
+    border-radius: 16px 16px 0 0;
+    max-height: 82vh;
+    max-height: 82dvh; /* dvh: respects the iOS URL-bar height; vh line above is the fallback */
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    animation: sheet-up 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  /* giftroam is shorter so it doesn't dominate; its inner list scrolls */
+  .giftroam {
+    max-height: 56vh;
+    max-height: 56dvh;
+  }
+  .gr-links {
+    max-height: 34vh;
+    max-height: 34dvh;
+  }
+
+  /* ── 搜索 panel: always present → keep at TOP (clear of the keyboard), full-width below the HUD ── */
+  .search {
+    /* sit just below the LIVE wrapped HUD height (HUD.tsx publishes --hud-h incl. the notch safe-area);
+       104px is only the pre-measure fallback. Robust to wrap-row count / notch / font / orientation, so
+       the search tab bar never overlaps + covers the HUD's filter buttons (search-hud-collision). */
+    top: calc(var(--hud-h, 104px) + 8px);
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+  }
+  /* the draggable Settings header is a no-op on mobile (the sheet is pinned by !important), so drop the
+     misleading grab cursor (the drag arming itself is also gated off on coarse pointers in SettingsMenu). */
+  .set-head.drag,
+  .set-head.drag:active {
+    cursor: default;
+  }
+  .search.collapsed {
+    width: auto;
+  }
+  .search-results {
+    max-height: 44vh;
+    max-height: 44dvh;
+  }
+  .line-results {
+    max-height: 52vh;
+    max-height: 52dvh;
+  }
+
+  /* ── inputs at 16px so iOS Safari does NOT zoom the viewport on focus ── */
+  .search input,
+  .idx-input,
+  .gr-ep-input {
+    font-size: 16px;
+  }
+  .compose-text {
+    font-size: 16px !important; /* override the desktop 15px !important rule above */
+  }
+
+  /* a full poem fits the narrower sheet */
+  .poem-body {
+    font-size: 22px;
+  }
+}
+
+/* ≥44px touch targets — only on actual touch devices, so desktop stays compact */
+@media (max-width: 600px) and (pointer: coarse) {
+  .panel-close,
+  .set-close {
+    font-size: 26px;
+    padding: 6px 12px;
+  }
+  .copy-btn,
+  .pi-locate {
+    padding: 7px 12px;
+  }
+  .seg-btn,
+  .filter,
+  .stab,
+  .gr-node,
+  .gr-set,
+  .gr-find {
+    min-height: 40px;
+  }
+  .pi-row {
+    padding: 11px 2px;
+  }
+  .legend-row,
+  .search-row {
+    padding-top: 11px;
+    padding-bottom: 11px;
+  }
 }

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { PulledPoem, PullForm } from "../engine/engineApi";
 import type { PoetRow, PoemRecord } from "../data/load";
 import { DYNASTIES } from "../data/dynasties";
+import { WEAK } from "../three/detectQuality";
 
 export interface Pull {
   id: number; // stable identity so PulledStars can track per-marker birth/death animation
@@ -135,7 +136,9 @@ export const useStore = create<State>((set) => ({
   pathDimEgo: false,
   giftHoverId: null,
   showAllPoems: false,
-  quality: "high",
+  // weak / mobile GPUs default to 画质·低 (auto-detected once at module load); the user can still force
+  // 画质·高 via the HUD toggle. See three/detectQuality.ts.
+  quality: WEAK ? "low" : "high",
   uiHidden: false,
   gravity: true,
   speed: 1,
@@ -196,7 +199,9 @@ export const useStore = create<State>((set) => ({
   toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
   togglePathDimEgo: () => set((s) => ({ pathDimEgo: !s.pathDimEgo })),
   setGiftHover: (giftHoverId) => set((s) => (s.giftHoverId === giftHoverId ? {} : { giftHoverId })),
-  toggleAllPoems: () => set((s) => ({ showAllPoems: !s.showAllPoems })),
+  // 行星·全部 builds ONE ~857k-point additive layer — fine on a desktop GPU, an instant freeze/OOM on a
+  // phone. On weak devices it can be turned OFF but never ON (the SettingsMenu row shows it disabled).
+  toggleAllPoems: () => set((s) => (WEAK && !s.showAllPoems ? {} : { showAllPoems: !s.showAllPoems })),
   toggleQuality: () => set((s) => ({ quality: s.quality === "high" ? "low" : "high" })),
   toggleGravity: () => set((s) => ({ gravity: !s.gravity })),
   toggleUI: () => set((s) => ({ uiHidden: !s.uiHidden })),

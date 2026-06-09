@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { useStore } from "../state/store";
 import { getManifest, hasRealGelu } from "../data/load";
 import type { PullForm } from "../engine/engineApi";
@@ -26,9 +27,23 @@ export function HUD() {
   const loaded = useStore((s) => s.loaded);
   const m = getManifest();
 
+  // Publish the LIVE wrapped HUD height (rows + notch safe-area) into --hud-h so the mobile search panel
+  // can sit just below it (styles.css) instead of guessing a fixed top — robust to wrap count / notch /
+  // font size / orientation. Desktop ignores --hud-h (the search keeps its fixed top there).
+  const topRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = topRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const set = () => document.documentElement.style.setProperty("--hud-h", `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <>
-      <div className="hud-top">
+      <div className="hud-top" ref={topRef}>
         <div className="title">
           诗云 <span className="title-en">Poetry Cloud</span>
         </div>

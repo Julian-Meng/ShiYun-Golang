@@ -10,6 +10,82 @@ real GPU. Data dirs (`poems/`, `lines/`) are git-ignored — see HANDOFF "data p
 
 ---
 
+## 2026-06-09 — Session: 7th agent (性能优化 + 移动端适配 — touch-fly/pinch, auto-quality, dpr cap, responsive bottom-sheets)
+
+Cut from `main` @ `59103ed`. Provisioned `poems/`+`lines/`+`search/` via junction to `main/public/data`
+(now the canonical source per the 6th-agent recovery) + `linesf/` from `nifty-kirch`; `npm install`; TOOK
+OVER port 5199 (stopped the 6th-agent's stale vite, restarted from this worktree). Worked the whole round
+behind two multi-agent passes: a 6-dimension **audit** (touch / responsive CSS / render-perf / load-perf /
+mobile-platform gotchas / deploy) → one prioritized plan, then an **adversarial review** (4 finders → each
+finding independently verified) that surfaced 20 confirmed issues, all of which are folded in below.
+
+The app was desktop-only (mouse-drag look, WASD fly, wheel speed) with zero `@media`/`touch-action` and a
+manual-only 画质 toggle. This round makes it usable + performant on phones/tablets. **No new data, no
+backend; engine/data untouched.** Verify gate green: `npm run build` (tsc + vite) + **89 tests** (was 68;
++21 new pure touch-gesture tests). *(Real-device touch can't be exercised headlessly — multi-touch logic is
+covered by the pure `touchGesture.ts` unit tests + the verified state machine; the user eyeballs on a real
+phone.)*
+
+### 1 — One shared device signal — `src/three/detectQuality.ts` (NEW)
+- `COARSE` = `matchMedia("(pointer: coarse)")` (touch primary). `WEAK` = `detectWeakGPU()`, evaluated ONCE
+  at module load (before the Canvas mounts, so the galaxy is built at the right size — no high→low rebuild
+  flash). **Heuristic: any coarse PRIMARY pointer ⇒ weak** — robust to the iPadOS-on-Mac-UA case (an iPad
+  sends a *Macintosh* UA + reports >768px, so a UA/screen test misses it; `pointer:coarse` does not) and to
+  large Android tablets; a touchscreen LAPTOP keeps a fine primary pointer so it stays high. Secondary
+  desktop low-end: `deviceMemory≤2`, or `cores≤2 && mem≤4` (the `&&` avoids false-downgrading a
+  privacy-clamped `hardwareConcurrency`). Consumed by store / App / FlyControls / SettingsMenu / Onboarding.
+
+### 2 — Auto quality + dpr cap (the biggest mobile FPS levers)
+- `store.quality` now defaults `WEAK ? "low" : "high"` (manual 画质 toggle still wins). `low` already halves
+  particle counts + drops bloom.
+- `App` caps Canvas `dpr={[1, WEAK ? 1.5 : 2]}` — dpr 1→2 quadruples the additive-fragment fill that
+  dominates cost on a phone. Keyed to the **initial** WEAK seed, NOT the live toggle (changing a live Canvas
+  dpr forces a GL context resize/flash); `gpuPick` reads `gl.getPixelRatio()` at pick time so the cap never
+  breaks picking. Bloom stays gated on the reactive `quality` (mount/unmount is safe).
+- **行星·全部** (the ~857k-point additive layer) is gated OFF on weak devices (`toggleAllPoems` can turn it
+  off but not on; SettingsMenu shows it disabled「弱设备已禁用,避免卡死」) — a phone flipping it on froze/OOM'd.
+
+### 3 — Touch input — `src/three/FlyControls.tsx` + `src/three/touchGesture.ts` (NEW)
+- `index.html` viewport: dropped `maximum-scale` (WCAG 1.4.4) + added `viewport-fit=cover` (notch insets).
+  `canvas { touch-action: none }` + `body { overscroll-behavior: none }` — THE gate for touch (else the
+  browser eats one-finger drag as scroll, fires pointercancel mid-gesture, and pull-to-refresh reloads).
+- **Gesture scheme (user-chosen): 1-finger drag = look; 2-finger drag = fly; 2-finger pinch = speed/zoom;
+  tap = pick.** All reuse the exact desktop camera math (`BASE_SPEED·speedMul`, the wheel's 0.1..80 clamp).
+  Forward thrust is an analog **joystick** (centroid displacement off the gesture origin → hold to cruise),
+  clamped to unit magnitude (a diagonal drag isn't faster than a cardinal one). A 2-finger gesture releases
+  any lock (so touch users can leave a locked view). Pinch speed telescopes (per-move ratio product = total
+  spread) → frame-rate independent.
+- Input is a `pointers` Map state machine (1 = look/orbit, 2-both-touch = fly/pinch). Hover-pick (a
+  synchronous GPU readback) is skipped entirely on `COARSE` (touch has no hover). `pointercancel` handled.
+  Touch-aware tap slop (14px vs 6px). The desktop single-pointer path is unchanged.
+- `touchGesture.ts` holds the pure, unit-tested math: `centroid`, `pinchDistance`, `thrustFromDrag`,
+  `pinchSpeed`, `classifyGesture`. **Mode-lock** (`classifyGesture`): a 2-finger gesture commits to pan XOR
+  pinch once it moves enough, so a one-handed pinch (centroid drifts ~½ the spread) can't leak thrust.
+
+### 4 — Responsive layout — `src/styles.css` (one `@media (max-width:600px)` block)
+- Transient overlays (诗/诗人/设置/赠诗漫游) → full-width **bottom sheets** (slide-up; `transform:none`, NOT
+  `!important`, so the keyframe still animates; `!important` only on left/right/top/bottom/width to beat the
+  Settings inline drag style). 搜索 stays at TOP, full-width, positioned below the LIVE wrapped HUD height
+  (`HUD.tsx` publishes `--hud-h` via a `ResizeObserver` incl. the notch — no fragile magic constant).
+- HUD top bar `flex-wrap` + trims desktop-only chrome (title-en / stat / 隐藏界面); HUD bottom hides the
+  WASD/wheel hint (wrong on touch — Onboarding step 3 now shows a COARSE-specific touch hint instead).
+- Inputs forced to 16px (iOS won't zoom-on-focus); ≥40px tap targets under `(pointer:coarse)`; `vh`→`dvh`
+  cascade on the 7 panel max-heights (iOS dynamic-toolbar safe); safe-area padding throughout.
+
+### 5 — Review fixes folded in (the 20 confirmed findings)
+- **DQ-1 (high)** iPad/tablet false-negative → the COARSE-primary rule above. **F1/F2/F4** finger-transition
+  bugs (onCancel view-jump; a 3→2 lift killing the last finger's look; stale 3→2 gesture baseline) →
+  unified `reseedAfterLift` + onUp only finalizes a tap at zero fingers. **TG-2** one-handed-pinch thrust
+  leak → `classifyGesture` mode-lock. **TG-1** `pinchDist` was dead code (2-finger unlocks) → deleted +
+  its misleading tests. **F5** mouse+finger on a 2-in-1 tripping the gesture → arm only when both pointers
+  are touch. **TG-3** diagonal-faster → unit-clamp the thrust. **DQ-4** privacy-clamped-cores false
+  positive, **TG-4** test gaps, **settings-drag** no-op grab cursor on mobile → all fixed.
+- Consciously DEFERRED (verified low / intended): the joystick "hold = cruise" (documented + onboarding
+  hint + the top search panel flies you back), per-frame `useFrame` allocation hoist (GC; do as a focused
+  follow-up to avoid colliding with this round's touch edits), `prefers-reduced-motion`, `webglcontextlost`
+  (iOS backgrounding — needs a real device), lexicon lazy-load, no dedicated vertical-touch gesture
+  (pitch-up + forward-thrust climbs since thrust is camera-space), and the whole deploy/fuzzy-hosting track.
+
 ## 2026-06-09 — Session: 6th agent (徐志摩 data recovery + 寻诗/探诗 rename + 寻诗 prefix/title search + cluster-centering + guide-line coverage)
 
 Cut from `main` @ `27d3ec5`. A fresh worktree has no heavy data; provisioned poems/lines via junction to the

@@ -8,6 +8,8 @@ import { giftLinks, giftGraphReady } from "../data/giftGraph";
 import { pickTargets } from "./picking";
 import { spinXZ, unspinXZ, SPIN_RATE, GALAXY } from "./galaxyParams";
 import { poemPosition, poetPosition, poemSystemRadius } from "./positions";
+import { COARSE } from "./detectQuality";
+import { centroid, pinchDistance, thrustFromDrag, pinchSpeed, classifyGesture, type Pt } from "./touchGesture";
 
 const GRAVITY_R = GALAXY.RADIUS * 1.15; // inside this sphere the camera is "in the galaxy's grip"
 
@@ -33,11 +35,23 @@ export function FlyControls() {
   const keys = useRef<Record<string, boolean>>({});
   const euler = useRef(new THREE.Euler(0, 0, 0, "YXZ"));
   const speedMul = useRef(1);
-  const drag = useRef({ active: false, lastX: 0, lastY: 0, moved: 0 });
+  const drag = useRef({ active: false, lastX: 0, lastY: 0, moved: 0, type: "" });
   const ray = useRef(new THREE.Raycaster());
   const lastHover = useRef(0);
   // orbit state while a poet/planet is locked: spherical offset (yaw/pitch/dist) around the target.
   const lock = useRef({ key: "", dist: 600, yaw: 0, pitch: 0.32 });
+  // ── touch ── all pointers currently down ON the canvas, keyed by pointerId. size 1 = look/orbit
+  // (the existing mouse path, byte-identical), size 2 (both TOUCH) = fly + pinch. `type` lets us ignore
+  // a mouse/pen that coexists with a finger on a 2-in-1 (so it never trips the two-finger gesture).
+  const pointers = useRef(new Map<number, { x: number; y: number; type: string }>());
+  // active two-finger gesture: `origin` = the centroid where it began (joystick origin for thrust);
+  // `prevDist` = the previous-move finger-distance (incremental pinch ref); `startDist` = the distance
+  // at start (for mode classification); `mode` = locked to pan XOR pinch once movement passes a
+  // threshold, so the two intents never cross-talk. null when fewer than two fingers are down.
+  const twoFinger = useRef<{ origin: Pt; prevDist: number; startDist: number; mode: "pan" | "pinch" | null } | null>(null);
+  // analog fly thrust from a two-finger drag, in WASD convention (z<0 forward, x>0 right); {0,0} when
+  // no touch-fly is active. Read in useFrame and ADDED on top of the keyboard fly vector.
+  const touchThrust = useRef({ z: 0, x: 0 });
 
   useEffect(() => {
     ray.current.params.Points = { threshold: 80 };
@@ -112,10 +126,60 @@ export function FlyControls() {
     };
     const onKeyUp = (e: KeyboardEvent) => (keys.current[e.code] = false);
     const onDown = (e: PointerEvent) => {
-      drag.current = { active: true, lastX: e.clientX, lastY: e.clientY, moved: 0 };
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+      if (pointers.current.size === 1) {
+        drag.current = { active: true, lastX: e.clientX, lastY: e.clientY, moved: 0, type: e.pointerType };
+      } else if (pointers.current.size === 2) {
+        const pts = [...pointers.current.values()];
+        // arm the two-finger fly/pinch gesture ONLY when both pointers are fingers — a mouse/pen
+        // coexisting with a resting finger on a 2-in-1 must not trip it (F5).
+        if (pts.every((p) => p.type === "touch")) {
+          const d0 = pinchDistance(pts[0], pts[1]);
+          twoFinger.current = { origin: centroid(pts[0], pts[1]), prevDist: d0, startDist: d0, mode: null };
+          touchThrust.current = { z: 0, x: 0 };
+          drag.current.moved += 99; // a multi-touch gesture is never a tap-pick
+          // releasing any lock mirrors how a movement key frees the camera on desktop → lets touch users
+          // leave a locked view by starting a two-finger gesture.
+          st().unlock();
+        }
+      }
     };
     const onMove = (e: PointerEvent) => {
-      if (drag.current.active) {
+      const p = pointers.current.get(e.pointerId);
+      if (p) {
+        p.x = e.clientX;
+        p.y = e.clientY;
+      }
+      const n = pointers.current.size;
+
+      // ── two-finger fly + pinch (touch) ── centroid drag = analog thrust (joystick: hold to cruise);
+      // finger spread/contract = speed (same clamp + role as the wheel). Both axes are independent.
+      if (n >= 2 && p) {
+        const pts = [...pointers.current.values()];
+        const cen = centroid(pts[0], pts[1]);
+        const d = pinchDistance(pts[0], pts[1]);
+        const tf = twoFinger.current;
+        if (tf) {
+          // lock the gesture to ONE mode once it moves enough, so a one-handed pinch (whose centroid
+          // drifts ~half the spread) can't leak thrust and a pan can't wobble the speed (TG-2).
+          if (tf.mode === null) tf.mode = classifyGesture(tf.origin, cen, tf.startDist, d);
+          if (tf.mode === "pan") {
+            touchThrust.current = thrustFromDrag(tf.origin, cen);
+          } else if (tf.mode === "pinch") {
+            const sm = pinchSpeed(speedMul.current, tf.prevDist, d);
+            if (sm !== speedMul.current) {
+              speedMul.current = sm;
+              st().setSpeed(sm);
+            }
+          }
+          tf.prevDist = d;
+        }
+        drag.current.moved += 99; // never a tap
+        return;
+      }
+
+      // ── one-finger look / lock-orbit (drag) — math unchanged from the mouse path ──
+      if (n === 1 && drag.current.active && p) {
         const dx = e.clientX - drag.current.lastX;
         const dy = e.clientY - drag.current.lastY;
         drag.current.lastX = e.clientX;
@@ -135,7 +199,10 @@ export function FlyControls() {
         camera.quaternion.setFromEuler(euler.current);
         return;
       }
-      // hover (throttled)
+
+      // ── hover (DESKTOP only) ── touch has no hover, and the per-move GPU readback is a sync stall →
+      // skip it entirely on coarse pointers. tap-pick (onUp) still resolves poets/planets on touch.
+      if (COARSE) return;
       const now = performance.now();
       if (now - lastHover.current > 70) {
         lastHover.current = now;
@@ -154,8 +221,38 @@ export function FlyControls() {
         if (ghid !== st().giftHoverId) st().setGiftHover(ghid);
       }
     };
+    // After a finger lifts/cancels mid-gesture (≥1 still down), rebind the active gesture's reference
+    // points to the SURVIVING pointers so neither one-finger look (F1/F2) nor two-finger fly (F4) jumps.
+    const reseedAfterLift = () => {
+      const pts = [...pointers.current.values()];
+      if (pts.length === 1) {
+        // 2→1: resume one-finger look from the remaining finger's CURRENT position (no view snap)
+        drag.current.lastX = pts[0].x;
+        drag.current.lastY = pts[0].y;
+      } else if (pts.length >= 2) {
+        // 3→2: rebind the gesture origin/baseline to the surviving pair + reset thrust/mode (no jump)
+        const d0 = pinchDistance(pts[0], pts[1]);
+        twoFinger.current = { origin: centroid(pts[0], pts[1]), prevDist: d0, startDist: d0, mode: null };
+        touchThrust.current = { z: 0, x: 0 };
+      }
+    };
     const onUp = (e: PointerEvent) => {
-      const wasClick = drag.current.active && drag.current.moved < 6;
+      const had = pointers.current.has(e.pointerId);
+      pointers.current.delete(e.pointerId);
+      const n = pointers.current.size;
+      if (n < 2) {
+        twoFinger.current = null;
+        touchThrust.current = { z: 0, x: 0 }; // stop flying the instant we drop below two fingers
+      }
+      if (n > 0) {
+        // fingers remain → NOT the last lift, so never finalize a tap and never clear drag.active
+        // (clearing it on a 3→2 lift would freeze the last finger's look). Just rebind the gesture.
+        reseedAfterLift();
+        return;
+      }
+      // last pointer up (n === 0) → a tap-pick if it barely moved and wasn't part of a multi-touch gesture.
+      const slop = drag.current.type === "touch" ? 14 : 6; // finger jitter is larger than a mouse click
+      const wasClick = had && drag.current.active && drag.current.moved < slop;
       drag.current.active = false;
       if (!wasClick) return;
       const hit = screenPick(e.clientX, e.clientY, true); // click = poets + poem planets
@@ -203,10 +300,26 @@ export function FlyControls() {
       speedMul.current = Math.min(80, Math.max(0.1, speedMul.current * (e.deltaY > 0 ? 0.82 : 1.22)));
       st().setSpeed(speedMul.current);
     };
+    // an OS-interrupted touch (notification, palm-reject, app switch) fires pointercancel, NOT pointerup
+    // — without this the finger would be left "down" forever, freezing look + flying the camera endlessly.
+    const onCancel = (e: PointerEvent) => {
+      pointers.current.delete(e.pointerId);
+      const n = pointers.current.size;
+      if (n < 2) {
+        twoFinger.current = null;
+        touchThrust.current = { z: 0, x: 0 };
+      }
+      if (n > 0) {
+        reseedAfterLift(); // ≥1 finger remains → rebind so the next move doesn't jump (F1/F4)
+        return;
+      }
+      drag.current.active = false;
+    };
 
     el.addEventListener("pointerdown", onDown);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
     el.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -214,6 +327,7 @@ export function FlyControls() {
       el.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
       el.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
@@ -301,8 +415,20 @@ export function FlyControls() {
     if (k["KeyD"]) v.x += 1;
     if (k["Space"]) v.y += 1;
     if (k["ShiftLeft"] || k["ShiftRight"]) v.y -= 1;
+    if (v.lengthSq() > 0) v.normalize(); // keyboard = a digital unit direction
+    // two-finger touch thrust (analog: magnitude ∝ how far the fingers pushed) added on top; {0,0} on
+    // desktop / when no touch-fly is active, so the WASD behaviour is byte-for-byte unchanged. Clamped to
+    // unit magnitude so a diagonal drag isn't ~41% faster than a cardinal one (thrustFromDrag clamps each
+    // axis independently → a square region) (TG-3). No allocation.
+    const tt = touchThrust.current;
+    if (tt.z || tt.x) {
+      const tlen = Math.hypot(tt.z, tt.x);
+      const tnorm = tlen > 1 ? 1 / tlen : 1;
+      v.z += tt.z * tnorm;
+      v.x += tt.x * tnorm;
+    }
     if (v.lengthSq() > 0) {
-      v.normalize().multiplyScalar(BASE_SPEED * speedMul.current * Math.min(dt, 0.05));
+      v.multiplyScalar(BASE_SPEED * speedMul.current * Math.min(dt, 0.05));
       v.applyQuaternion(camera.quaternion);
       camera.position.add(v);
     }

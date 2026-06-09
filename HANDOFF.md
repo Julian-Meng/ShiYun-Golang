@@ -29,16 +29,26 @@ hand-off is broken — fix `main` first.** Check with `git log --oneline --all -
 - (fast, same machine) junction them from a worktree that already has them (New-Item -ItemType Junction, or
   `cmd /c mklink /J "<new>\public\data\poems" "<existing>\public\data\poems"`, and `…\lines` `…\linesf` `…\search`).
 
-> ⚠ **2026-06-09 — main's `poems/`/`lines/` are MISSING the 508 modern 新诗 poets** (徐志摩/海子/北岛/顾城…): a
-> `build-data.mjs` run dropped the modern corpus (the modern read is a WARN-only `try/catch`, `build-data.mjs:163`)
-> while git's `poets.index.json` kept them → divergence; clicking those poets loads nothing. The 6th-agent session
-> recovered them in ITS worktree by junctioning from the COMPLETE `epic-sinoussi` copy, but **main was left
-> untouched**. If you cut from main: provision `poems/`/`lines/`/`search/` from a GOOD source (e.g. `epic-sinoussi`)
-> OR rerun `build-data.mjs` with the modern corpus present, then verify `徐志摩 (id 91c14d18)` loads 19 poems. See
-> [docs/DEVLOG.md](docs/DEVLOG.md) 6th-agent entry for the full diagnosis + scope check (`missing === 0 / 29,808`).
+> ✅ **2026-06-09 — main's data is now COMPLETE + the canonical source.** Earlier a `build-data.mjs` run had
+> dropped the 508 modern 新诗 poets (徐志摩/海子/北岛/顾城…) from `poems/`/`lines/` while git's `poets.index.json`
+> kept them (the modern read is a WARN-only `try/catch`, `build-data.mjs:163`). The 6th-agent session RECOVERED
+> them INTO `main/public/data` (copied the complete `poems/` + rebuilt `lines/` + `search/`) → **`missing === 0 /
+> 29,808`**, 徐志摩 loads 19 poems, 寻诗 works. **So a fresh worktree should junction its data from `main`'s
+> `public/data`** (`poems/` `lines/` `search/` are all good there). `linesf/` (the ~4.4 GB fuzzy) is NOT in main
+> — junction it from `inspiring-bhabha-081900/public/data/linesf` or rebuild (`npm run build:fuzzy`); fuzzy is a
+> fallback, so it's optional. (The build-data WARN-only modern read is still a latent foot-gun — fix it if you
+> rebuild from corpus.)
 
 **Backups:** private GitHub repo `github.com/Cohenjikan/shiyun` (all branches); local all-branches
 bundle at `C:\Users\Cohen\Desktop\shiyun-ALL-branches-backup.bundle` (restore: `git clone <bundle>`).
+
+> 🖥 **Live preview is port 5199 (`vite.config` strictPort).** The user watches `http://localhost:5199`
+> directly — **do NOT load the in-conversation preview MCP.** At this hand-off 5199 is served by the 6th-agent
+> worktree `nifty-kirch-35a544`. To take it over from YOUR worktree: (1) provision data (junction `poems/`
+> `lines/` `search/` from `main/public/data`, `linesf/` from a sibling — see the data note above); (2) free the
+> port (`Get-NetTCPConnection -LocalPort 5199 -State Listen` → `Stop-Process -Id <pid> -Force` on the old vite);
+> (3) `npm install` (fresh worktree has no node_modules) then `npm run dev`. Verify changes with build/tests +
+> HTTP fetches against 5199, not the preview MCP.
 
 ---
 

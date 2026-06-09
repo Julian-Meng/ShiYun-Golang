@@ -17,16 +17,10 @@ export function HUD() {
   const toggleCommon = useStore((s) => s.toggleCommon);
   const lushi = useStore((s) => s.lushiFilter);
   const toggleLushi = useStore((s) => s.toggleLushi);
-  const showGifts = useStore((s) => s.showGifts);
-  const toggleGifts = useStore((s) => s.toggleGifts);
-  const guideHold = useStore((s) => s.guideHold);
-  const toggleGuideHold = useStore((s) => s.toggleGuideHold);
-  const showAllPoems = useStore((s) => s.showAllPoems);
-  const toggleAllPoems = useStore((s) => s.toggleAllPoems);
+  const settingsOpen = useStore((s) => s.settingsOpen);
+  const toggleSettings = useStore((s) => s.toggleSettings);
   const quality = useStore((s) => s.quality);
   const toggleQuality = useStore((s) => s.toggleQuality);
-  const gravity = useStore((s) => s.gravity);
-  const toggleGravity = useStore((s) => s.toggleGravity);
   const toggleUI = useStore((s) => s.toggleUI);
   const speed = useStore((s) => s.speed);
   const loaded = useStore((s) => s.loaded);
@@ -67,32 +61,11 @@ export function HUD() {
           </button>
         )}
         <button
-          className={showGifts ? "filter on" : "filter"}
-          onClick={toggleGifts}
-          title="显示诗人之间的赠答网络（寄/赠/和/次韵），选中诗人可高亮其往来"
+          className={settingsOpen ? "filter on" : "filter"}
+          onClick={toggleSettings}
+          title="设置：指引 / 行星 / 赠诗 / 引力"
         >
-          赠诗
-        </button>
-        <button
-          className={showAllPoems ? "filter on" : "filter"}
-          onClick={toggleAllPoems}
-          title="行星：把每位诗人的全部作品显示为环绕他的行星（85万颗，建议高性能机器）。关闭时只在点击某位诗人后显示他的行星"
-        >
-          行星
-        </button>
-        <button
-          className={guideHold ? "filter on" : "filter"}
-          onClick={toggleGuideHold}
-          title="指引常驻：选中诗人后,射向其每首诗的指引线长期保留(同时最多一位);关闭则只闪现约10秒"
-        >
-          指引
-        </button>
-        <button
-          className={gravity ? "filter on" : "filter"}
-          onClick={toggleGravity}
-          title="引力：进入星系后摄像机随星系一同自转，恒星相对静止、好点选（默认开）"
-        >
-          引力
+          ⚙ 设置
         </button>
         <button
           className="filter"

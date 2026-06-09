@@ -18,9 +18,8 @@ import { pickTargets } from "./picking";
 // still land). The whole group also rides the shared galaxy spin. *(sizes/brightness tune on a real GPU.)*
 
 const FADE_IN = 0.4; // s — flash in
-const HOLD = 10.0; // s — held FULLY bright for the whole 10 s (then weaken), so the cluster stays legible
-const FADE_OUT = 1.5; // s
-const HOLD_FLARE = 0.6; // sustained brightness/size boost during the hold (not just the birth flash)
+const FADE_OUT = 1.5; // s — fade when replaced/deselected
+const HOLD_FLARE = 0.6; // sustained brightness/size boost held for the WHOLE selection (item 7)
 
 // uAlpha = fade in/out; uFlare = birth flash (size + brightness); the cloud self-rotates by uTime*aOmega.
 function planetMaterial(bright: number, sizeScale: number, maxPx: number, twinkle: boolean) {
@@ -174,8 +173,11 @@ export function PoemOrbits() {
     for (const L of hi.current) if (L.outAt == null) L.outAt = poemClock.t; // fade out the old highlight
     activeHi.current = null;
     if (selectedPoet) {
+      // brighter + LARGER while selected (item 7): bigger rendered planets = bigger GPU pick target → the
+      // poems are easier to click, and the cluster pops. The highlight now HOLDS for the whole selection
+      // (see useFrame) instead of fading after ~10 s, so "仅选中时" the cluster stays lit + clickable + nameable.
       const L = makeLayer([selectedPoet], Math.max(0, selectedPoet.poemCount), {
-        bright: 3.0, sizeScale: 720, maxPx: 30, twinkle: true,
+        bright: 3.4, sizeScale: 860, maxPx: 44, twinkle: true,
       });
       if (L) {
         L.mat.uniforms.uAlpha.value = 0;
@@ -214,9 +216,10 @@ export function PoemOrbits() {
         alpha = Math.max(0, 1 - k); flare = 0;
       } else {
         const age = t - L.born;
-        if (age >= FADE_IN + HOLD) { L.outAt = t; alpha = 1; flare = HOLD_FLARE; if (activeHi.current === L) { activeHi.current = null; expired = true; } }
-        // birth: flash from full → the sustained hold level; then HOLD: stay boosted the whole 10 s
-        else if (age < FADE_IN) { alpha = age / FADE_IN; flare = 1 - (1 - HOLD_FLARE) * (age / FADE_IN); }
+        // item 7: HOLD the highlight for the WHOLE selection (was: fade after ~10 s). It only fades when a
+        // new selection / deselection sets L.outAt (the useEffect above), so the selected poet's cluster
+        // stays lit + big-pick + nameable as long as it's selected. (No auto-expiry → activeHi stays valid.)
+        if (age < FADE_IN) { alpha = age / FADE_IN; flare = 1 - (1 - HOLD_FLARE) * (age / FADE_IN); }
         else { alpha = 1; flare = HOLD_FLARE; }
       }
       L.mat.uniforms.uAlpha.value = alpha;

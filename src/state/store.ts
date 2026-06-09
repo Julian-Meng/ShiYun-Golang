@@ -23,14 +23,21 @@ interface State {
   pulls: Pull[];
   // poets
   hoverPoetId: string | null;
+  hoverPoem: { title: string; x: number; y: number } | null; // 诗名指引: hovered planet's title near cursor
   selectedPoet: PoetRow | null;
   poetPoems: PoemRecord[] | null;
   poetFocus: { poemIdx: number; title: string; firstLine: string } | null; // poem to surface (诗句 search)
   // 赠诗 network
   showGifts: boolean;
-  // 行星指引线常驻: when ON the selected poet's guide lines stay (no 10s auto-fade); only ONE at a time
-  // (they follow the selected poet, so picking another poet switches them). OFF = one-shot ~10s flash.
-  guideHold: boolean;
+  // 行星指引线 settings (the 指引 line射向选中诗人的每首诗):
+  //   mode     = off(不显示) / flash(点一下闪现 guideSeconds 秒) / hold(常驻,直到换人/关闭)
+  //   coverage = all(每首诗都连线,一首不漏) / optimized(数量大时跨全段采样,见 PoemGuides)
+  //   seconds  = flash 模式每次显示的时长
+  guideMode: "off" | "flash" | "hold";
+  guideCoverage: "all" | "optimized";
+  guideSeconds: number;
+  // 诗云设置菜单 (收容 指引 / 行星 / 赠诗 / 引力) open
+  settingsOpen: boolean;
   // poem "planets": when ON, every poet shows ALL their poems as orbiting planets (高性能);
   // when OFF, only the selected poet's poems orbit (on-demand 彩蛋). Like 赠诗, a visual toggle.
   showAllPoems: boolean;
@@ -47,6 +54,8 @@ interface State {
   pathStart: string | null;
   pathEnd: string | null;
   pathResult: string[] | null; // BFS poet-id path (incl. endpoints), [] = searched but none within range
+  pathDimEgo: boolean; // 路径查找时弱化(变暗)个体往来线,突出 path 本身
+  giftHoverId: string | null; // 悬停高亮的赠诗往来线(对方 poetId) — easier to click (item 6)
   // camera
   gravity: boolean; // when inside the galaxy, co-rotate the camera with the spin (stars hold still)
   speed: number; // multiplier
@@ -67,6 +76,7 @@ interface State {
   pulseAt: (pos: [number, number, number], valid: boolean) => void; // flare a point WITHOUT changing selection
   clearSelection: () => void;
   setHover: (id: string | null) => void;
+  setHoverPoem: (h: { title: string; x: number; y: number } | null) => void;
   selectPoet: (p: PoetRow, focus?: { poemIdx: number; title: string; firstLine: string } | null) => void;
   setPoetPoems: (id: string, poems: PoemRecord[]) => void;
   clearPoet: () => void;
@@ -75,7 +85,13 @@ interface State {
   clearTrail: () => void;
   setPath: (start: string | null, end: string | null, result: string[] | null) => void;
   toggleGifts: () => void;
-  toggleGuideHold: () => void;
+  setGuideMode: (m: "off" | "flash" | "hold") => void;
+  setGuideCoverage: (c: "all" | "optimized") => void;
+  setGuideSeconds: (n: number) => void;
+  resetGuide: () => void;
+  toggleSettings: () => void;
+  togglePathDimEgo: () => void;
+  setGiftHover: (id: string | null) => void;
   toggleAllPoems: () => void;
   toggleQuality: () => void;
   toggleGravity: () => void;
@@ -100,15 +116,21 @@ export const useStore = create<State>((set) => ({
   selected: null,
   pulls: [],
   hoverPoetId: null,
+  hoverPoem: null,
   selectedPoet: null,
   poetPoems: null,
   poetFocus: null,
   showGifts: false,
-  guideHold: false,
+  guideMode: "flash",
+  guideCoverage: "optimized",
+  guideSeconds: 10,
+  settingsOpen: false,
   giftTrail: [],
   pathStart: null,
   pathEnd: null,
   pathResult: null,
+  pathDimEgo: false,
+  giftHoverId: null,
   showAllPoems: false,
   quality: "high",
   uiHidden: false,
@@ -144,12 +166,13 @@ export const useStore = create<State>((set) => ({
     set((s) => ({ pulls: [...s.pulls, { id: _pullSeq++, pos, valid }].slice(-MAX_PULLS) })),
   clearSelection: () => set({ selected: null }),
   setHover: (hoverPoetId) => set({ hoverPoetId }),
+  setHoverPoem: (hoverPoem) => set({ hoverPoem }),
   selectPoet: (selectedPoet, focus = null) =>
     // a NORMAL selection (3D star / search / planet) starts a FRESH trail at this poet (点无关诗人清除)
     set({ selectedPoet, poetPoems: null, poetFocus: focus, selected: null, giftTrail: [selectedPoet.id] }),
   setPoetPoems: (id, poems) =>
     set((s) => (s.selectedPoet?.id === id ? { poetPoems: poems } : {})),
-  clearPoet: () => set({ selectedPoet: null, poetPoems: null, poetFocus: null, lockPoetId: null, lockPoemIdx: null, giftTrail: [] }),
+  clearPoet: () => set({ selectedPoet: null, poetPoems: null, poetFocus: null, lockPoetId: null, lockPoemIdx: null, giftTrail: [], hoverPoem: null }),
   hopToPoet: (poet) =>
     set((s) => {
       const id = poet.id;
@@ -161,8 +184,14 @@ export const useStore = create<State>((set) => ({
   clearTrail: () => set((s) => ({ giftTrail: s.selectedPoet ? [s.selectedPoet.id] : [], pathResult: null })),
   setPath: (pathStart, pathEnd, pathResult) => set({ pathStart, pathEnd, pathResult }),
   toggleGifts: () =>
-    set((s) => (s.showGifts ? { showGifts: false, giftTrail: [], pathStart: null, pathEnd: null, pathResult: null } : { showGifts: true })),
-  toggleGuideHold: () => set((s) => ({ guideHold: !s.guideHold })),
+    set((s) => (s.showGifts ? { showGifts: false, giftTrail: [], pathStart: null, pathEnd: null, pathResult: null, giftHoverId: null } : { showGifts: true })),
+  setGuideMode: (guideMode) => set({ guideMode }),
+  setGuideCoverage: (guideCoverage) => set({ guideCoverage }),
+  setGuideSeconds: (guideSeconds) => set({ guideSeconds }),
+  resetGuide: () => set({ guideMode: "flash", guideCoverage: "optimized", guideSeconds: 10 }),
+  toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
+  togglePathDimEgo: () => set((s) => ({ pathDimEgo: !s.pathDimEgo })),
+  setGiftHover: (giftHoverId) => set((s) => (s.giftHoverId === giftHoverId ? {} : { giftHoverId })),
   toggleAllPoems: () => set((s) => ({ showAllPoems: !s.showAllPoems })),
   toggleQuality: () => set((s) => ({ quality: s.quality === "high" ? "low" : "high" })),
   toggleGravity: () => set((s) => ({ gravity: !s.gravity })),

@@ -14,6 +14,8 @@ import { PoemPanel } from "./ui/PoemPanel";
 import { PoetPanel } from "./ui/PoetPanel";
 import { SearchPanel } from "./ui/SearchPanel";
 import { GiftRoam } from "./ui/GiftRoam";
+import { SettingsMenu } from "./ui/SettingsMenu";
+import { PoemHoverLabel } from "./ui/PoemHoverLabel";
 import { Onboarding } from "./ui/Onboarding";
 import { useStore } from "./state/store";
 import { applyHash, syncHash } from "./state/permalink";
@@ -92,8 +94,10 @@ export default function App() {
       {!uiHidden && (
         <>
           <HUD />
+          <SettingsMenu />
           {loaded && <SearchPanel />}
           {loaded && <GiftRoam />}
+          {loaded && <PoemHoverLabel />}
           <PoemPanel />
           <PoetPanel />
         </>

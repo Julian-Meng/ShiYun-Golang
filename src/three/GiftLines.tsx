@@ -42,6 +42,8 @@ export function GiftLines() {
   const showGifts = useStore((s) => s.showGifts);
   const hidden = useStore((s) => s.hidden);
   const selId = useStore((s) => s.selectedPoet?.id ?? null);
+  const pathDimEgo = useStore((s) => s.pathDimEgo); // 弱化往来线,突出路径 (item 4)
+  const giftHoverId = useStore((s) => s.giftHoverId); // 悬停高亮的往来线对方 (item 6)
   const [raw, setRaw] = useState<GiftEdge[] | null>(null);
 
   useEffect(() => {
@@ -136,7 +138,11 @@ export function GiftLines() {
       if (selId !== null) {
         if (!hot) continue; // selected → clean ego-network
       } else if (e.w < AMBIENT_MIN_W) continue; // ambient → only strong relationships
-      const factor = hot ? 1.4 : 0.32;
+      const other = e.from === selId ? e.to : e.from;
+      const isHover = hot && giftHoverId !== null && other === giftHoverId;
+      let factor = hot ? 1.4 : 0.32;
+      if (pathDimEgo) factor *= 0.16; // 弱化往来线 → the cyan path / gold trail dominate
+      if (isHover) factor = 2.8; // 悬停的那条往来线高亮,好点选
       for (let s = 0; s < STEPS; s++) {
         const i0 = s * 3, i1 = (s + 1) * 3;
         pos.push(e.pts[i0], e.pts[i0 + 1], e.pts[i0 + 2], e.pts[i1], e.pts[i1 + 1], e.pts[i1 + 2]);
@@ -156,7 +162,7 @@ export function GiftLines() {
     const ls = new THREE.LineSegments(g, mat);
     ls.frustumCulled = false;
     return ls;
-  }, [edges, hidden, selId, mat]);
+  }, [edges, hidden, selId, pathDimEgo, giftHoverId, mat]);
 
   useFrame((_, dt) => {
     mat.uniforms.uTime.value += dt;

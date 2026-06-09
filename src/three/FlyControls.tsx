@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import { useStore } from "../state/store";
 import { pullAt, COMMON_K } from "../engine/engineApi";
-import { loadPoetPoems, getPoet } from "../data/load";
+import { loadPoetPoems, getPoet, type PoetRow } from "../data/load";
 import { giftLinks, giftGraphReady } from "../data/giftGraph";
 import { pickTargets } from "./picking";
 import { spinXZ, unspinXZ, SPIN_RATE, GALAXY } from "./galaxyParams";
@@ -21,7 +21,8 @@ function distPointSeg(px: number, py: number, ax: number, ay: number, bx: number
 }
 const GIFT_BUNDLE = 0.3; // must match GiftLines' BUNDLE so the pick curve == the drawn arc
 const GIFT_ESTEPS = 16;
-const GIFT_PICK_PX = 16; // click within this many px of an arc to hop along it
+const GIFT_PICK_PX = 22; // click within this many px of an arc to hop along it (generous → easy to hit)
+const GIFT_HOVER_PX = 26; // hover within this → highlight the arc (so the user sees what they'll click)
 
 const BASE_SPEED = 140; // world units/sec at speed ×1 (slow, galactic feel)
 // pressing any of these releases the camera lock (随意按移动键解除锁定)
@@ -62,7 +63,7 @@ export function FlyControls() {
     // GIFT_PICK_PX → returns the OTHER poet to hop to. Cheap (a handful of edges, click-only).
     const ZERO = new THREE.Vector3(0, 0, 0);
     const _gp = new THREE.Vector3(), _ga = new THREE.Vector3(), _gb = new THREE.Vector3(), _gc1 = new THREE.Vector3(), _gc2 = new THREE.Vector3();
-    const pickGiftEdge = (clientX: number, clientY: number) => {
+    const pickGiftEdge = (clientX: number, clientY: number, thresholdPx = GIFT_PICK_PX): PoetRow | null => {
       const s = useStore.getState();
       const from = s.selectedPoet;
       if (!s.showGifts || !from || !giftGraphReady()) return null;
@@ -71,7 +72,7 @@ export function FlyControls() {
       const r = el.getBoundingClientRect();
       const cx = clientX - r.left, cy = clientY - r.top;
       _ga.set(...poetPosition(from));
-      let best: { poet: ReturnType<typeof getPoet>; d: number } | null = null;
+      let best: { poet: PoetRow; d: number } | null = null;
       for (const l of links) {
         const other = getPoet(l.other);
         if (!other) continue;
@@ -97,7 +98,7 @@ export function FlyControls() {
           psx = sx; psy = sy; hasPrev = front;
         }
       }
-      return best && best.d < GIFT_PICK_PX ? best.poet : null;
+      return best && best.d < thresholdPx ? best.poet : null;
     };
 
     const isTyping = () => {
@@ -138,9 +139,19 @@ export function FlyControls() {
       const now = performance.now();
       if (now - lastHover.current > 70) {
         lastHover.current = now;
-        const hit = screenPick(e.clientX, e.clientY); // hover = poets only (cheap; no poem layer)
+        const sel = st().selectedPoet;
+        const hit = screenPick(e.clientX, e.clientY, !!sel); // include poems only when a poet is selected
         const id = hit?.kind === "poet" ? hit.poet.id : null;
         if (id !== st().hoverPoetId) st().setHover(id);
+        // 诗名指引 (item 7): hovering one of the SELECTED poet's planets shows its title near the cursor
+        if (hit?.kind === "poem" && sel && hit.poet.id === sel.id) {
+          st().setHoverPoem({ title: st().poetPoems?.[hit.poemIdx]?.t || "无题", x: e.clientX, y: e.clientY });
+        } else if (st().hoverPoem) st().setHoverPoem(null);
+        // 赠诗往来线 hover-highlight (赠诗 on + a poet selected, cursor not on a star/planet) → the arc lights up
+        const ghid = st().showGifts && sel && !hit
+          ? pickGiftEdge(e.clientX, e.clientY, GIFT_HOVER_PX)?.id ?? null
+          : null;
+        if (ghid !== st().giftHoverId) st().setGiftHover(ghid);
       }
     };
     const onUp = (e: PointerEvent) => {
@@ -148,7 +159,9 @@ export function FlyControls() {
       drag.current.active = false;
       if (!wasClick) return;
       const hit = screenPick(e.clientX, e.clientY, true); // click = poets + poem planets
-      const giftHop = hit ? null : pickGiftEdge(e.clientX, e.clientY); // void click → maybe a 赠诗 arc
+      // void click → the hovered (already-highlighted) 赠诗 arc if any, else a fresh pick at click range
+      const hov = useStore.getState().giftHoverId;
+      const giftHop = hit ? null : ((hov ? getPoet(hov) ?? null : null) ?? pickGiftEdge(e.clientX, e.clientY));
       if (hit?.kind === "poet") {
         st().selectPoet(hit.poet);
         st().lockPoet(hit.poet.id); // lock the star in the centre + follow it

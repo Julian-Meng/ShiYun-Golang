@@ -84,8 +84,10 @@ thing that breaks the hosting model; all index math + render is client-side).
 | **半编号 (half-index)** | 诗句 tab also yields the **半编号** — the high-order address the opening line pins (verified: 静夜思's 全集编号 *starts with* the 5-char 半编号). Pure, always-on: `engineApi.halfIndex/halfIndexAuto`. |
 | **赠诗网络** | HUD 赠诗 toggle → **4,849 dedication edges** (寄/赠/和/次韵… title-parsed; greedy-longest name match + ~250-entry 字号 alias table — 少陵→杜甫, 子瞻→苏轼, 香山→白居易; one edge per 兼寄 recipient). 元稹→白居易, 苏辙→苏轼, 黄庭坚→苏轼…. Committed `gifts.json` (~126 KB). `three/GiftLines`. |
 | **新诗 / modern** | yuxqiu/modern-poetry contemporary set (Apache-2.0) folded in: +4,494 free-verse poems / +508 poets (徐志摩《再别康桥》, 海子, 北岛, 顾城, 戴望舒…). Free verse → form `other`; 民国→近现代 else 当代; their lines are searchable. |
-| **行星指引常驻** | HUD **指引** toggle (`store.guideHold`) → the selected poet's `PoemGuides` lines hold instead of the 10 s auto-fade; only one poet's guides at a time (follow `selectedPoet`). `three/PoemGuides.tsx`. |
-| **赠诗漫游** | `ui/GiftRoam.tsx` (shown when 赠诗 on): **往来** list (click → fly across the edge to the other poet) + **3D arc click** (`FlyControls` CPU ego-net pick → hop) + **足迹** breadcrumb of hops with PERSISTENT gold **return lines** (`three/GiftTrail.tsx`, ≤10) + **路径查找** (BFS shortest ≤10 hops, cyan 3D highlight). Hop = `store.hopToPoet` (select + lock + trail). Graph + BFS + dedication finder in `data/giftGraph.ts`. |
+| **诗云设置菜单** | HUD **⚙设置** (`store.settingsOpen`) → `ui/SettingsMenu.tsx` collects 指引 / 行星 / 赠诗 / 引力 (moved out of the top bar) + 恢复默认. |
+| **行星指引线设置** | `store.guideMode` (off/flash/hold) × `guideCoverage` (all=每首不漏 / optimized=采样) × `guideSeconds` (flash 时长). In the settings menu. `three/PoemGuides.tsx`. |
+| **赠诗漫游** | `ui/GiftRoam.tsx` (when 赠诗 on): **往来** list (click → fly across) + **3D arc click** (`FlyControls` ego-net CPU pick, hover-highlights `store.giftHoverId` + 22–26px generous range → easy to hit) + **足迹** breadcrumb with PERSISTENT gold **return lines** (`three/GiftTrail.tsx`, ≤10) + **路径查找** (typed `searchPoets` or 选中 endpoints; BFS ≤10 hops; cyan 3D highlight; `store.pathDimEgo` 弱化往来线). Hop = `store.hopToPoet`. Graph/BFS/dedication = `data/giftGraph.ts`. |
+| **选中诗人增强** | Selected poet's planets HOLD the bright/large highlight for the whole selection (easier GPU pick) + hover a planet → 《title》 tooltip (`store.hoverPoem`, `ui/PoemHoverLabel`). `three/PoemOrbits.tsx`. |
 
 Three pull modes to feel the project: plain random「牛蝛茙漂綵」→ 格律「趰㵎憣烔岆」→ 格律+常用字
 「思伦要锁馆」; plus 自由格式 for 词-like变行, and the 诗句 tab to find a real poem from one line.
@@ -464,3 +466,9 @@ on any fresh worktree** (or it falls back to whole-bucket). This is the prerequi
 - **Index convention: first char = most-significant digit.**
 - **Filters compose inside one Babel catalog**; the displayed 全集编号 is always the full-catalog
   address.
+- **Per-form 编号 is per-form, NOT global** (discussed 2026-06-09, see DEVLOG): the same number means a
+  different poem under each 诗体 (each form = a separate fixed-length catalog starting at index 0 → they
+  overlap). A globally-UNIQUE single number is mathematically possible and ALREADY exists as the 自由/任意长
+  全集编号 (`engine.anyRank`, a bijection over all lengths). Tradeoff: universal number is longer, or a short
+  per-form number is only unique WITH its form tag. If unification is ever wanted: canonicalise on `anyRank`,
+  or always render 编号 with its 诗体. Not yet changed.

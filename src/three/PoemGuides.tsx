@@ -13,9 +13,8 @@ import { poetPosition, poemOffset, poemOmega } from "./positions";
 // unmistakably read as "this poet's works", without leaving permanent clutter.
 
 const GROW = 1.2; // s — lines extend from the poet outward
-const HOLD = 8.0; // s
-const FADE = 1.2; // s  (GROW + HOLD + FADE ≈ 10 s, then disposed)
-const MAX_LINES = 4000; // safety cap (largest poets have a few thousand poems)
+const FADE = 1.2; // s — fade-out after the (settings-driven) hold time
+const MAX_LINES = 4000; // 'optimized' coverage cap (then sampled across the full range); 'all' lifts it
 
 interface Guide {
   lines: THREE.LineSegments;
@@ -26,6 +25,8 @@ interface Guide {
 
 export function PoemGuides() {
   const selectedPoet = useStore((s) => s.selectedPoet);
+  const guideMode = useStore((s) => s.guideMode); // off / flash / hold
+  const guideCoverage = useStore((s) => s.guideCoverage); // all / optimized
   const groupRef = useRef<THREE.Group>(null);
   const cur = useRef<Guide | null>(null);
 
@@ -33,13 +34,15 @@ export function PoemGuides() {
     const grp = groupRef.current;
     if (!grp) return;
     if (cur.current) { grp.remove(cur.current.lines); cur.current.geo.dispose(); cur.current.mat.dispose(); cur.current = null; }
-    if (!selectedPoet) return;
+    if (!selectedPoet || guideMode === "off") return;
     const total = Math.max(0, selectedPoet.poemCount);
     if (!total) return;
-    const P = Math.min(MAX_LINES, total); // guide-line COUNT (capped only for the few >MAX_LINES poets)
-    // Which poem each guide points at: ≤ cap → every poem; otherwise SAMPLE uniformly across the WHOLE
-    // range so guides reach the OUTERMOST planets too (was the first MAX_LINES → it ignored the rest).
-    const poemIndexOf = (k: number) => (total <= MAX_LINES ? k : Math.floor((k * total) / P));
+    // coverage: 'all' = a line to EVERY poem (一首不漏; the most prolific poet is ~8k → cheap as 1 segment
+    // each); 'optimized' = cap then SAMPLE uniformly across the whole range so guides still reach the
+    // outermost planets (not just the first MAX_LINES).
+    const CAP = guideCoverage === "all" ? 20000 : MAX_LINES;
+    const P = Math.min(CAP, total);
+    const poemIndexOf = (k: number) => (total <= CAP ? k : Math.floor((k * total) / P));
 
     const [cx, cy, cz] = poetPosition(selectedPoet);
     const omega = poemOmega(selectedPoet);
@@ -92,7 +95,7 @@ export function PoemGuides() {
     lines.frustumCulled = false;
     cur.current = { lines, geo, mat, born: poemClock.t };
     grp.add(lines);
-  }, [selectedPoet]);
+  }, [selectedPoet, guideMode, guideCoverage]);
 
   useEffect(() => () => {
     const grp = groupRef.current;
@@ -104,17 +107,19 @@ export function PoemGuides() {
     if (grp) grp.rotation.y = galaxySpin.angle;
     const g = cur.current;
     if (!g) return;
-    const hold = useStore.getState().guideHold; // 指引常驻: keep the lines up instead of the 10 s auto-fade
+    const st = useStore.getState();
+    const hold = st.guideMode === "hold"; // 常驻: keep the lines up; flash: hold for guideSeconds then fade
+    const showSec = Math.max(1, st.guideSeconds); // per-click display time (flash mode)
     const t = poemClock.t; // advanced by PoemOrbits
     g.mat.uniforms.uTime.value = t;
     const age = t - g.born;
     g.mat.uniforms.uGrow.value = Math.min(1, age / GROW);
     let alpha: number;
     if (age < GROW) alpha = (age / GROW) * 0.6;
-    else if (hold || age < GROW + HOLD) alpha = 0.6; // 常驻 → hold full alpha indefinitely
-    else alpha = Math.max(0, 0.6 * (1 - (age - GROW - HOLD) / FADE));
+    else if (hold || age < GROW + showSec) alpha = 0.6; // hold (常驻 → forever; flash → for guideSeconds)
+    else alpha = Math.max(0, 0.6 * (1 - (age - GROW - showSec) / FADE));
     g.mat.uniforms.uAlpha.value = alpha;
-    if (!hold && age >= GROW + HOLD + FADE) { grp?.remove(g.lines); g.geo.dispose(); g.mat.dispose(); cur.current = null; } // auto-delete (off only)
+    if (!hold && age >= GROW + showSec + FADE) { grp?.remove(g.lines); g.geo.dispose(); g.mat.dispose(); cur.current = null; } // auto-delete (flash only)
   });
 
   return <group ref={groupRef} />;

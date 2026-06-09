@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../state/store";
-import { getPoet, loadPoetPoems, type PoetRow } from "../data/load";
+import { getPoet, loadPoetPoems, searchPoets, type PoetRow } from "../data/load";
 import { ensureGiftGraph, giftLinks, giftPath, dedicationPoemIdx, giftGraphReady } from "../data/giftGraph";
 import { poemPosition } from "../three/positions";
 
@@ -24,11 +24,19 @@ export function GiftRoam() {
   const setPath = useStore((s) => s.setPath);
   const clearTrail = useStore((s) => s.clearTrail);
   const pulseAt = useStore((s) => s.pulseAt);
+  const pathDimEgo = useStore((s) => s.pathDimEgo);
+  const togglePathDimEgo = useStore((s) => s.togglePathDimEgo);
 
   const [ready, setReady] = useState(giftGraphReady());
   useEffect(() => {
     if (showGifts && !ready) ensureGiftGraph().then(() => setReady(true));
   }, [showGifts, ready]);
+
+  // path endpoints can be typed (reuse the 诗人 search) OR set from the current selection
+  const [startQ, setStartQ] = useState("");
+  const [endQ, setEndQ] = useState("");
+  const startRes = startQ.trim() ? searchPoets(startQ, 6) : [];
+  const endRes = endQ.trim() ? searchPoets(endQ, 6) : [];
 
   if (!showGifts) return null;
 
@@ -106,30 +114,41 @@ export function GiftRoam() {
         </div>
       )}
 
-      {/* ── 路径: find a chain of 赠诗 edges between two poets (≤MAX_HOPS) ── */}
+      {/* ── 路径: find a chain of 赠诗 edges between two poets — type a name OR use the selection (≤MAX_HOPS) ── */}
       <div className="gr-section">
         <div className="gr-head">路径查找</div>
-        <div className="gr-path-set">
-          <button
-            className="gr-set"
-            disabled={!selectedPoet}
-            onClick={() => selectedPoet && setPath(selectedPoet.id, pathEnd, null)}
-          >
-            设为起点
-          </button>
+
+        <div className="gr-endpoint">
+          <input className="gr-ep-input" placeholder="起点诗人…（可输入）" value={startQ} onChange={(e) => setStartQ(e.target.value)} spellCheck={false} />
+          <button className="gr-set" disabled={!selectedPoet} title="用当前选中的诗人" onClick={() => { if (selectedPoet) { setPath(selectedPoet.id, pathEnd, null); setStartQ(""); } }}>选中</button>
           <span className="gr-slot">{pathStart ? name(pathStart) : "—"}</span>
-          <span className="gr-arrow">→</span>
-          <span className="gr-slot">{pathEnd ? name(pathEnd) : "—"}</span>
-          <button
-            className="gr-set"
-            disabled={!selectedPoet}
-            onClick={() => selectedPoet && setPath(pathStart, selectedPoet.id, null)}
-          >
-            设为终点
-          </button>
         </div>
+        {startRes.length > 0 && (
+          <div className="gr-ac">
+            {startRes.map((p) => (
+              <button key={p.id} className="gr-ac-row" onClick={() => { setPath(p.id, pathEnd, null); setStartQ(""); }}>{p.name}</button>
+            ))}
+          </div>
+        )}
+
+        <div className="gr-endpoint">
+          <input className="gr-ep-input" placeholder="终点诗人…（可输入）" value={endQ} onChange={(e) => setEndQ(e.target.value)} spellCheck={false} />
+          <button className="gr-set" disabled={!selectedPoet} title="用当前选中的诗人" onClick={() => { if (selectedPoet) { setPath(pathStart, selectedPoet.id, null); setEndQ(""); } }}>选中</button>
+          <span className="gr-slot">{pathEnd ? name(pathEnd) : "—"}</span>
+        </div>
+        {endRes.length > 0 && (
+          <div className="gr-ac">
+            {endRes.map((p) => (
+              <button key={p.id} className="gr-ac-row" onClick={() => { setPath(pathStart, p.id, null); setEndQ(""); }}>{p.name}</button>
+            ))}
+          </div>
+        )}
+
         <div className="gr-path-act">
           <button className="gr-find" disabled={!pathStart || !pathEnd} onClick={runPath}>查找路径</button>
+          <label className="gr-dim-toggle" title="弱化诗人的个体往来线,突出找到的路径本身">
+            <input type="checkbox" checked={pathDimEgo} onChange={togglePathDimEgo} /> 弱化往来线
+          </label>
           {pathResult && pathResult.length === 0 && <span className="gr-dim-inline">≤{MAX_HOPS} 跳内无连接</span>}
           {pathResult && pathResult.length > 0 && <span className="gr-dim-inline">{pathResult.length - 1} 跳</span>}
         </div>

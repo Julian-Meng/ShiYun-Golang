@@ -93,6 +93,35 @@ interactions need a real-GPU pass (no preview).**
   New: `data/giftGraph.ts` (adjacency + BFS + dedication finder), `three/GiftTrail.tsx`, `ui/GiftRoam.tsx`; store
   gains `giftTrail`/`pathStart`/`pathEnd`/`pathResult` + `hopToPoet`/`clearTrail`/`setPath`; HUD 指引 toggle.
 
+### 8 — 设置菜单 + 指引设置 + 漫游易用性 (+ 编号唯一性 discussion)
+**编号唯一性 (discussion only, no change)**: the user noticed `编号 N` means DIFFERENT poems under different 诗体
+(五绝=20字 vs 七律=56字 — each form is a SEPARATE fixed-length catalog whose index starts at 0 → overlap → the
+same number collides). Verdict: **solvable, no new math needed.** All poems form a countable set, so a single
+`ℕ↔诗` bijection exists — and the project ALREADY has one: `engine.anyRank/anyUnrank` (the 自由/任意长 全集编号 over
+字库∪break) gives every poem (any form/length) a UNIQUE number. The per-form numbers are convenience sub-catalogs.
+Fundamental tradeoff: either the number is longer (a universal length-aware encoding) OR a short per-form number is
+only unique WITH its 诗体 tag — length info must live somewhere. Recommended (deferred): treat the 自由 全集编号 as
+the canonical id, or always show 编号 with its form. Recorded for a future engine decision.
+
+Then 7 product items (all build + 66/66; visual/interaction need a real-GPU pass):
+- **1 指引设置**: `guideHold`→`guideMode`(off/flash/hold) + `guideCoverage`(all/optimized) + `guideSeconds`. 'all' =
+  a line to EVERY poem (一首不漏; uncapped — max poet ~8k = cheap); 'optimized' = the round-9 sampled cap. flash =
+  show `guideSeconds`s then fade; hold = 常驻. 恢复默认 = flash/optimized/10. (`PoemGuides`, `store`.)
+- **2 诗云设置菜单**: new `ui/SettingsMenu.tsx` (⚙设置 in HUD) collects 指引(全套) / 行星 / 赠诗 / 引力, each with
+  恢复默认 (+ a 全部恢复默认). The 4 toggles moved OUT of the HUD top bar. 赠诗漫游 stays a separate panel.
+- **3 路径查找手填**: GiftRoam path endpoints can be TYPED (reuse `searchPoets` autocomplete) or set 选中, not only
+  click-picked.
+- **4 弱化往来线**: `store.pathDimEgo` + GiftRoam checkbox → `GiftLines` dims the ego arcs (×0.16) so the cyan path
+  /gold trail dominate when finding a route.
+- **5 滑动条统一**: shared thin gold `::-webkit-scrollbar` + `scrollbar-color` across all overlay panels.
+- **6 赠诗线好点**: hover-highlight — `FlyControls` hover-projects the ego arcs; nearest within 26px sets
+  `store.giftHoverId` → `GiftLines` lights that arc (×2.8); the click range is the same generous threshold (22px)
+  and clicking the highlighted arc hops. So you SEE what you'll click + hit it easily (was pure luck).
+- **7 行星更好点 + 诗名 + 提亮(仅选中)**: the selected poet's cluster now HOLDS the highlight for the WHOLE selection
+  (was ~10s) at brighter+larger (`bright 3.4`, `sizeScale 860`, `maxPx 44`) → bigger GPU pick target = easier to
+  click; hovering one of its planets shows the poem 《title》 near the cursor (`store.hoverPoem` + `ui/PoemHoverLabel`,
+  via hover poem-pick gated to the selected poet). (`PoemOrbits`, `FlyControls`.)
+
 ### Round 8 — fuzzy LINE index (mid-line 异文) + orbit-lock + sustained highlight + guide lines
 - **诗句 mid-line variant search (item 1)** — round-7's `findReal` fuzzy only covered COMPOSE; 诗句 search of a
   variant line (「举头望明月」) still missed. New `pipeline/build-fuzzy.mjs` (`npm run build:fuzzy`) builds a

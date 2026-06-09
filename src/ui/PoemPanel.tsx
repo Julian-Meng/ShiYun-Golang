@@ -35,8 +35,8 @@ export function PoemPanel() {
         </div>
         <div className="meta-row col">
           <span className="meta-k">
-            {isFree ? "自由目录编号" : "全集编号"}
-            <span className="meta-sub">正序第几首 · {selected.babelDigits} 位</span>
+            全集编号
+            <span className="meta-sub">唯一 · 跨诗体 · {selected.babelDigits} 位</span>
             <CopyButton text={selected.babelIndex} />
           </span>
           <span className="meta-v idx full" title={`${selected.babelDigits} 位十进制 · 反查请到「编号反查」`}>

@@ -6,13 +6,11 @@
 // Search → take a b, unrank, fly to its canonical scattered point.
 import {
   FORMS,
-  FORM_LIST,
   type FormId,
   type FormDef,
   babelUnrank,
   babelRank,
   babelSize,
-  prefixIndex,
   regulatedSize,
   regulatedUnrank,
   matchVariant,
@@ -84,6 +82,41 @@ function toLines(form: FormDef, chars: number[]): string[] {
   return out;
 }
 
+// ── 唯一·全集编号 (universal) ───────────────────────────────────────────────────────────────────
+// THE canonical, globally-unique address of a poem = anyRank over its (chars + LINE-BREAK symbols).
+// Because every poem — 五绝/七绝/五律/七律/自由/新诗 — is just a character-and-break sequence, and anyRank
+// is a bijection over those sequences, the SAME poem has the SAME number no matter which 诗体 you call it:
+// a 七绝 (4×7) and the identical poem typed as 自由 produce the IDENTICAL symbol run → the IDENTICAL index.
+// This dissolves both the old per-form collision (编号 1 meant a different poem in each form) AND the
+// "自由 复刻 fixed-form structure → 一首诗两个编号" dedup worry — there is one number, by construction.
+// (The per-form babelRank/格律 catalogs survive in the engine, but only for the void-pull's spatial
+// scatter + the 格律 mode; they are NOT the displayed 编号 anymore.)
+function lineBreakSyms(N: number, lineCharIds: number[][]): number[] {
+  const syms: number[] = [];
+  for (let l = 0; l < lineCharIds.length; l++) {
+    if (l > 0) syms.push(N); // break BETWEEN lines (no trailing) — matches anyTextIndex exactly
+    for (const id of lineCharIds[l]) syms.push(id);
+  }
+  return syms;
+}
+function fixedFormSyms(form: FormDef, chars: number[]): number[] {
+  const lines: number[][] = [];
+  for (let l = 0; l < form.lines; l++) lines.push(chars.slice(l * form.cpl, (l + 1) * form.cpl));
+  return lineBreakSyms(getDataset().lexicon.N, lines);
+}
+/** Infer the 诗体 of a poem from its line structure (so reverse/locate can label it). */
+function inferForm(lines: string[]): PullForm {
+  const lens = lines.map((l) => [...l].length);
+  const uniform = lens.length > 0 && lens.every((x) => x === lens[0]);
+  if (uniform) {
+    if (lines.length === 4 && lens[0] === 5) return "wujue";
+    if (lines.length === 4 && lens[0] === 7) return "qijue";
+    if (lines.length === 8 && lens[0] === 5) return "wulu";
+    if (lines.length === 8 && lens[0] === 7) return "qilu";
+  }
+  return "ziyou";
+}
+
 function bitLen(n: bigint): number {
   let b = 0;
   while (n > 0n) {
@@ -115,8 +148,10 @@ function indexFromPoint(p: [number, number, number], M: bigint): bigint {
 
 function describe(form: FormDef, chars: number[], pos: [number, number, number]): PulledPoem {
   const lex = getDataset().lexicon;
-  const b = babelRank(N(), chars);
   const matched = matchVariant(lex, form, chars);
+  // displayed 编号 = the UNIVERSAL anyRank (chars+breaks), so a fixed-form poem shares ONE number with
+  // its 自由 twin. (The per-form babelRank is still used internally for spatial scatter, not displayed.)
+  const b = anyRank(lex.N, fixedFormSyms(form, chars));
   return {
     form: form.id,
     lines: toLines(form, chars),
@@ -290,33 +325,19 @@ export function textBabelIndex(formId: FormId, han: string): { index: string; di
   return { index: s, digits: s.length };
 }
 
-// 半编号: interpret a typed line/opening as the START of a form and return the high-order
-// address its known chars pin (see engine.prefixIndex). `freeChars` low positions stay free,
-// so prefixRange = N^freeChars poems share this opening. A known line ⇒ a known half-number.
+// 半编号 (universal): the opening's chars are the MOST-significant symbols of the universal anyRank, so
+// anyRank(opening) IS the high-order prefix that EVERY poem starting with this opening shares — a true
+// prefix of the full 全集编号. No form needed: one catalog, the same opening pins the same high-order.
 export interface HalfIndex {
-  form: FormId;
-  index: string; // decimal high-order address (the prefix padded with the lowest char)
+  index: string; // the high-order prefix (universal catalog) the opening pins
   digits: number;
   locked: number; // chars pinned by the typed opening
-  freeChars: number; // remaining free positions in the form
-  total: number; // form length L
 }
-export function halfIndex(formId: FormId, han: string): HalfIndex | null {
-  const form = FORMS[formId];
-  const ids = hanToIds(han);
-  if (!ids || ids.length === 0 || ids.length > form.L) return null;
-  const s = prefixIndex(form.L, N(), ids).toString();
-  return { form: formId, index: s, digits: s.length, locked: ids.length, freeChars: form.L - ids.length, total: form.L };
-}
-/** 半编号 for the best-fitting form: prefer one whose LINE length divides the opening (a 5-char
- *  line ⇒ 五绝, a 7-char line ⇒ 七绝 — never 五绝), smallest L; else the smallest form it fits in. */
 export function halfIndexAuto(han: string): HalfIndex | null {
   const ids = hanToIds(han);
   if (!ids || ids.length === 0) return null;
-  const len = ids.length;
-  for (const f of FORM_LIST) if (len % f.cpl === 0 && len <= f.L) return halfIndex(f.id, han);
-  for (const f of FORM_LIST) if (len <= f.L) return halfIndex(f.id, han);
-  return null; // longer than 七律 (56) — too long to pin to a single form
+  const s = anyRank(getDataset().lexicon.N, ids).toString();
+  return { index: s, digits: s.length, locked: ids.length };
 }
 
 // ── 反查 (reverse): 编号 → 诗 — the other direction of the bijection. unrank a decimal index
@@ -329,7 +350,7 @@ export interface IndexPoem {
   inRange: boolean; // index < |catalog| for this form
   cardinalityDigits: number; // length of |catalog| (so the UI can say "共 … 首")
 }
-export function pullByIndex(formId: PullForm, indexInput: string): IndexPoem | null {
+export function pullByIndex(_formId: PullForm, indexInput: string): IndexPoem | null {
   const digitsOnly = (indexInput || "").replace(/[^0-9]/g, "");
   if (!digitsOnly) return null;
   let b: bigint;
@@ -339,15 +360,10 @@ export function pullByIndex(formId: PullForm, indexInput: string): IndexPoem | n
     return null;
   }
   const idx = b.toString(); // normalize (drops leading zeros)
-  if (formId === "ziyou") {
-    // 自由 = the arbitrary catalog: EVERY positive integer maps to a poem, so it's always inRange.
-    return { form: "ziyou", lines: describeAny(anySyms(b), [0, 0, 0]).lines, index: idx, digits: idx.length, inRange: true, cardinalityDigits: 0 };
-  }
-  const form = FORMS[formId];
-  const size = babelSize(form.L, N());
-  const inRange = b < size;
-  const lines = inRange ? toLines(form, babelUnrank(form.L, N(), b)) : [];
-  return { form: formId, lines, index: idx, digits: idx.length, inRange, cardinalityDigits: size.toString().length };
+  // UNIVERSAL reverse: every number maps to EXACTLY ONE poem (the anyRank bijection), so the same
+  // number is the same poem regardless of 诗体. The form is INFERRED from the line structure for display.
+  const lines = describeAny(anySyms(b), [0, 0, 0]).lines;
+  return { form: inferForm(lines), lines, index: idx, digits: idx.length, inRange: true, cardinalityDigits: 0 };
 }
 
 // ── 任意长编号 (arbitrary-length 自由 catalog) — gives REAL variable-length poems (新诗/古体)
@@ -381,7 +397,7 @@ export function anyTextIndex(lines: string[]): AnyIndex | null {
 
 // Rebuild a full PulledPoem from a known index (for permalink restore). Places it at the
 // canonical scattered point so a shared link drops you onto the same star.
-export function pulledFromIndex(formId: PullForm, indexStr: string): PulledPoem | null {
+export function pulledFromIndex(_formId: PullForm, indexStr: string): PulledPoem | null {
   const digitsOnly = (indexStr || "").replace(/[^0-9]/g, "");
   if (!digitsOnly) return null;
   let b: bigint;
@@ -390,13 +406,7 @@ export function pulledFromIndex(formId: PullForm, indexStr: string): PulledPoem 
   } catch {
     return null;
   }
-  if (formId === "ziyou") {
-    // arbitrary catalog: any index is valid; place it at a canonical scattered point.
-    const p = indexToPoint(b);
-    return describeAny(anySyms(b), [p.x, p.y, p.z]);
-  }
-  const form = FORMS[formId];
-  if (b >= babelSize(form.L, N())) return null;
-  const p = pointForBabelIndex(formId, b);
-  return describe(form, babelUnrank(form.L, N(), b), [p.x, p.y, p.z]);
+  // UNIVERSAL: any number → its one poem (anyRank bijection), placed at a canonical scattered point.
+  const p = indexToPoint(b);
+  return describeAny(anySyms(b), [p.x, p.y, p.z]);
 }

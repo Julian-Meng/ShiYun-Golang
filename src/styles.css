@@ -388,7 +388,12 @@ canvas {
   top: 64px;
   left: 20px; /* docked left so it never covers the crosshair / 定位 at screen centre */
   z-index: 22;
-  width: 320px;
+  width: min(384px, calc(100vw - 36px)); /* wider so content fills it; never overflow → no h-scroll */
+  max-width: calc(100vw - 36px);
+}
+.search-results,
+.line-results {
+  overflow-x: hidden; /* long 编号 / poem lines wrap instead of scrolling sideways */
 }
 .search input {
   width: 100%;
@@ -626,6 +631,16 @@ canvas {
 .locate-btn:hover {
   background: linear-gradient(180deg, rgba(255, 210, 122, 0.26), rgba(255, 210, 122, 0.12));
   border-color: rgba(255, 210, 122, 0.7);
+}
+/* real-poem locate (item 1): flies to the poet's ACTUAL orbiting planet, not the void — tinted cyan */
+.locate-btn.real {
+  background: linear-gradient(180deg, rgba(127, 209, 255, 0.18), rgba(127, 209, 255, 0.08));
+  border-color: rgba(127, 209, 255, 0.5);
+  color: #aee3ff;
+}
+.locate-btn.real:hover {
+  background: linear-gradient(180deg, rgba(127, 209, 255, 0.28), rgba(127, 209, 255, 0.13));
+  border-color: rgba(127, 209, 255, 0.75);
 }
 
 /* poet panel */
@@ -1286,6 +1301,14 @@ canvas {
   font-size: 14px;
   letter-spacing: 0.06em;
   margin-bottom: 8px;
+}
+.set-head.drag {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.set-head.drag:active {
+  cursor: grabbing;
 }
 .set-close {
   background: none;

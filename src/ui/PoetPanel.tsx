@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../state/store";
 import { DYNASTY_BY_KEY } from "../data/dynasties";
-import { textBabelIndex, anyTextIndex } from "../engine/engineApi";
-import type { FormId } from "../engine/engine";
+import { anyTextIndex } from "../engine/engineApi";
 import { poemPosition } from "../three/positions";
 import { ShareButton } from "./CopyButton";
 
@@ -77,14 +76,10 @@ export function PoetPanel() {
     const cache = idxCache.current;
     if (cache.has(i)) return cache.get(i)!;
     const pm = poems![i];
-    let res: IdxInfo = null;
-    if (pm.f === "other") {
-      const a = anyTextIndex(pm.p);
-      if (a) res = { kind: "free", index: a.index, digits: a.digits, chars: a.chars, lines: a.lines };
-    } else {
-      const t = textBabelIndex(pm.f as FormId, pm.p.join(""));
-      if (t) res = { kind: "full", index: t.index, digits: t.digits };
-    }
+    // UNIVERSAL 全集编号 for EVERY poem (anyTextIndex over chars+breaks): a 五绝 and its 自由 twin share
+    // ONE number, and a number reverses to exactly one poem. No per-form catalog, no collision.
+    const a = anyTextIndex(pm.p);
+    const res: IdxInfo = a ? { kind: "full", index: a.index, digits: a.digits, chars: a.chars, lines: a.lines } : null;
     cache.set(i, res);
     return res;
   }
@@ -149,10 +144,7 @@ export function PoetPanel() {
                     {(() => {
                       const r = indexFor(i);
                       if (!r) return <div className="pi-idx dim">含字库外字符 · 无固定编号</div>;
-                      const label =
-                        r.kind === "free"
-                          ? `自由编号 · ${r.chars}字 ${r.lines}行 · ${r.digits}位`
-                          : `全集编号 · ${r.digits}位`;
+                      const label = `全集编号 · ${r.chars}字 ${r.lines}行 · ${r.digits}位`;
                       return (
                         <div className="pi-idx-block">
                           <div className="pi-idx-head">{label}<LazyCopy compute={() => r.index} label="复制" /></div>

@@ -63,7 +63,7 @@ thing that breaks the hosting model; all index math + render is client-side).
 
 | Area | State |
 |---|---|
-| **Index engine** (`src/engine/engine.ts`) | Babel base-N + 格律 mixed-radix-product rank/unrank, nested dual index, reversible BigInt Feistel, + **自由 variable-length catalog** + **prefixIndex (半编号)** + **编号反查 (pullByIndex)**. **44/44 tests**. First char = most-significant digit. **The 全集编号 IS a true 正序 rank** (`babelRank` = the poem's lexicographic position over the freq-ordered 字库) — `babelUnrank` reverses it (`engineApi.pullByIndex`), so 诗⇄编号 is an exact bijection (NOT a hash; the Feistel scatter is used only for spatial layout, never for the displayed number). |
+| **Index engine** (`src/engine/engine.ts`) | Babel base-N + 格律 mixed-radix-product rank/unrank, nested dual index, reversible BigInt Feistel, + **自由/universal variable-length catalog (`anyRank`)** + **半编号** + **编号反查 (pullByIndex)**. **47/47 engine tests**. First char = most-significant digit. **The displayed 全集编号 is now the UNIVERSAL `anyRank`** over (chars + line-breaks) — ONE unique number per poem across all 诗体 (a 七绝 ≡ its 自由 twin), reversed by `anyUnrank` (`engineApi.pullByIndex`, form-agnostic) → 诗⇄编号 is an exact bijection. (Per-form `babelRank`/格律 catalogs survive for spatial scatter + 格律 mode only; the Feistel scatter never IS the displayed number.) |
 | **Real data** | Werneror corpus + modern 新诗 → **29,808 poets · 857,877 poems · 字库 N=12,877** (Simplified). In `public/data/`. |
 | **Real 格律** | 平水韵 lexicon (charlesix59, MIT + pinyin-pro tail): 平 5758 / 仄 7119 / 30 韵部. `公式 格律 toggle` produces tone-valid, rhyming poems. |
 | **Galaxy** | Realistic spiral: **~166k two-layer particles** (soft dim dust + sparse bright arm stars) + a **dense particle bulge** on an exponential profile (no hard glow-sprite → smooth core), **Gaussian point falloff** `exp(-4.5d²)` (continuous nebulosity, not dots), value-noise clumping + dust gaps, HII knots, warm-core→blue-arm colour, **`UnrealBloom`** for HDR glow. **画质·高/低 toggle** (`store.quality`) halves counts + drops bloom for weak GPUs. |
@@ -466,9 +466,10 @@ on any fresh worktree** (or it falls back to whole-bucket). This is the prerequi
 - **Index convention: first char = most-significant digit.**
 - **Filters compose inside one Babel catalog**; the displayed 全集编号 is always the full-catalog
   address.
-- **Per-form 编号 is per-form, NOT global** (discussed 2026-06-09, see DEVLOG): the same number means a
-  different poem under each 诗体 (each form = a separate fixed-length catalog starting at index 0 → they
-  overlap). A globally-UNIQUE single number is mathematically possible and ALREADY exists as the 自由/任意长
-  全集编号 (`engine.anyRank`, a bijection over all lengths). Tradeoff: universal number is longer, or a short
-  per-form number is only unique WITH its form tag. If unification is ever wanted: canonicalise on `anyRank`,
-  or always render 编号 with its 诗体. Not yet changed.
+- **全集编号 is now the UNIVERSAL `anyRank` (one unique number per poem)** — RESOLVED 2026-06-09 (was: each
+  诗体 a separate overlapping catalog → the same number meant a different poem per form). The displayed 编号
+  everywhere (探诗 填字/凭编号, 目录, 虚空诗, permalink) = `anyRank` over (chars + line-breaks). A fixed-form
+  poem and its 自由 twin are the SAME symbol run → the SAME number, so reverse is unambiguous AND duplicates
+  are impossible by construction. `pullByIndex` is form-agnostic (infers 诗体 from structure). The per-form
+  babelRank/格律 catalogs remain ONLY for the void-pull's spatial scatter + the 格律 mode — NOT displayed.
+  半编号 = `anyRank(opening)`, still a true high-order prefix of the full number. (DEVLOG round 9.)

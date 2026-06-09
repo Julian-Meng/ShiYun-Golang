@@ -122,6 +122,30 @@ Then 7 product items (all build + 66/66; visual/interaction need a real-GPU pass
   click; hovering one of its planets shows the poem 《title》 near the cursor (`store.hoverPoem` + `ui/PoemHoverLabel`,
   via hover poem-pick gated to the selected poet). (`PoemOrbits`, `FlyControls`.)
 
+### 9 — 唯一全集编号 (SOLVED) + 真实诗定位 + 设置可拖/亮度 + 搜索宽度
+- **唯一全集编号 (the headline fix)**: the per-form catalogs collided (`编号 N` was a DIFFERENT poem in each
+  诗体, because each fixed form is its own `[0, N^L)` catalog → overlapping ranges). Unified on the
+  **universal `anyRank`** over (chars + LINE-BREAK symbols) as THE displayed 编号 for EVERY poem. Because
+  any poem is just a char-and-break sequence and `anyRank` is a bijection over those, a 七绝 and its 自由
+  twin are the IDENTICAL symbol run → the IDENTICAL number — so the **dedup is automatic** (no detection
+  needed; the user's "自由 复刻 fixed-form → 一首诗两个编号" worry dissolves). Verified on real data: 李白
+  《赠汪伦》 → a 127-digit number, identical via the 七绝 path and the 自由 path, reverses to the exact poem,
+  and differs from the old 114-digit per-form babelRank. Changes (`engineApi`): `describe` (void-pull),
+  `pullByIndex` (reverse — now form-agnostic, infers 诗体 from structure, always in-range), `pulledFromIndex`,
+  `halfIndexAuto` (now `anyRank(opening)` — a TRUE prefix of the universal number, kept). UI: 探诗 填字/凭编号,
+  PoetPanel 目录, PoemPanel, `permalink` (`#p=<index>`, form dropped) all use the universal index. The per-form
+  babelRank/格律 catalogs survive in the engine for spatial scatter + 格律 mode only. **+2 engineApi tests
+  (dedup + form-agnostic reverse) → 68 total.** The number is long on purpose ("越长越贴合原著").
+- **1 真实诗定位**: when a composed / reverse-looked-up poem IS a real corpus poem (`findReal` now returns
+  poetId+poemIdx), its 定位 button flies to that poet's ACTUAL orbiting planet (李白's 赠汪伦) — not a random
+  void-scatter point. (`SearchPanel.goReal`; cyan button.)
+- **2 设置可拖动**: `SettingsMenu` is now drag-by-header (default below the bar, left of the right-side panels)
+  so it never traps behind the 诗人/诗 panels and you can watch the effect live.
+- **3 搜索宽度**: 寻诗/探诗 panel `width: min(384px, 100vw-36px)` + overflow-x hidden — fills the space, no
+  sideways scroll.
+- **4 指引线亮度可调**: `store.guideBrightness` (default 0.7×, lower) + a settings slider (0.2..2×); `PoemGuides`
+  scales its colour by a `uBright` uniform.
+
 ### Round 8 — fuzzy LINE index (mid-line 异文) + orbit-lock + sustained highlight + guide lines
 - **诗句 mid-line variant search (item 1)** — round-7's `findReal` fuzzy only covered COMPOSE; 诗句 search of a
   variant line (「举头望明月」) still missed. New `pipeline/build-fuzzy.mjs` (`npm run build:fuzzy`) builds a

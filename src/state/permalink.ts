@@ -1,19 +1,17 @@
 // Shareable URL-hash state. Two forms:
-//   #a=<poetId>          → a poet (restored: select + fly + load poems)
-//   #p=<form>.<index>    → a void-pulled poem (form ∈ wujue|qijue|wulu|qilu|ziyou)
+//   #a=<poetId>   → a poet (restored: select + fly + load poems)
+//   #p=<index>    → a poem, by its UNIVERSAL 全集编号 (anyRank — the number self-describes its 诗体)
 // The hash is kept in sync with the current selection (App effect); panels copy location.href.
 import { useStore } from "./store";
-import { pulledFromIndex, type PullForm } from "../engine/engineApi";
+import { pulledFromIndex } from "../engine/engineApi";
 import { getPoet, loadPoetPoems } from "../data/load";
 import { poetPosition } from "../three/PoetStars";
-
-const FORMS: PullForm[] = ["wujue", "qijue", "wulu", "qilu", "ziyou"];
 
 /** The hash that represents the current selection (empty if nothing selected). */
 export function currentHash(): string {
   const s = useStore.getState();
   if (s.selectedPoet) return `#a=${s.selectedPoet.id}`;
-  if (s.selected) return `#p=${s.selected.form}.${s.selected.babelIndex}`;
+  if (s.selected) return `#p=${s.selected.babelIndex}`;
   return "";
 }
 
@@ -41,11 +39,10 @@ export function applyHash(): void {
       loadPoetPoems(poet.id).then((poems) => useStore.getState().setPoetPoems(poet.id, poems));
     }
   } else if (k === "p") {
+    // universal: `#p=<index>`. Tolerate a legacy `form.index` by taking the part after the dot.
     const dot = val.indexOf(".");
-    if (dot < 0) return;
-    const form = val.slice(0, dot) as PullForm;
-    if (!FORMS.includes(form)) return;
-    const poem = pulledFromIndex(form, val.slice(dot + 1));
+    const idx = dot >= 0 ? val.slice(dot + 1) : val;
+    const poem = pulledFromIndex("ziyou", idx);
     if (poem) {
       st.selectPoem(poem);
       st.setFlyTarget(poem.pos);

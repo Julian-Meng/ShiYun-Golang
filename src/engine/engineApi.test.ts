@@ -3,36 +3,59 @@ import { setDataset } from "../data/provider";
 import { makeFixtureLexicon } from "./lexicon.fixture";
 import { textBabelIndex, anyTextIndex, pullByIndex, inCharset } from "./engineApi";
 
-// The 造诗 (compose) UI calls these app-facing engineApi functions: fill a grid → textBabelIndex,
-// write 自由 lines → anyTextIndex, paste a number → pullByIndex. Verify the compose ⇄ reverse
-// round-trips against a fixture dataset (120-char 字库 matching makeFixtureLexicon N=120).
+// The 探诗 (compose/reverse) UI calls these. Since 2026-06-09 the displayed 全集编号 is the UNIVERSAL
+// anyRank over (chars + line-breaks): ONE globally-unique number per poem (a 五绝 and its 自由 twin share
+// it), so 编号 ⇄ 诗 is a clean bijection with no per-form collision and no duplicate. Verify against a
+// fixture dataset (120-char 字库 matching makeFixtureLexicon N=120).
 const lex = makeFixtureLexicon(60, 60, 6); // N = 120
 const charset = Array.from({ length: lex.N }, (_, i) => String.fromCodePoint(0x4e00 + i)); // 一, 丁, 丂 …
+const lines5 = [
+  charset.slice(0, 5).join(""), charset.slice(5, 10).join(""),
+  charset.slice(10, 15).join(""), charset.slice(15, 20).join(""),
+]; // a 五绝-shaped poem (4×5)
+const lines7 = [
+  charset.slice(0, 7).join(""), charset.slice(7, 14).join(""),
+  charset.slice(14, 21).join(""), charset.slice(21, 28).join(""),
+]; // a 七绝-shaped poem (4×7)
 
 beforeAll(() => setDataset({ lexicon: lex, charset }));
 
-describe("engineApi 造诗 ⇄ 反查 round-trips", () => {
-  it("fixed form: textBabelIndex(form, text) → pullByIndex(form, idx) reproduces the exact poem", () => {
-    const text = charset.slice(0, 20).join(""); // a filled 五绝 grid (L = 20)
-    const r = textBabelIndex("wujue", text);
+describe("engineApi — universal 全集编号 (anyRank) ⇄ 反查", () => {
+  it("a fixed-form poem's universal index reverses to the EXACT poem + infers its 诗体", () => {
+    const r = anyTextIndex(lines5);
     expect(r).not.toBeNull();
-    const back = pullByIndex("wujue", r!.index);
-    expect(back?.inRange).toBe(true);
-    expect(back!.lines.join("")).toBe(text);
-    expect(back!.lines.map((l) => [...l].length)).toEqual([5, 5, 5, 5]); // 4 lines × 5 chars
+    const back = pullByIndex("ziyou", r!.index);
+    expect(back!.lines).toEqual(lines5);
+    expect(back!.form).toBe("wujue"); // 4×5 → 五绝 inferred from the structure
   });
 
-  it("自由: anyTextIndex(lines) → pullByIndex('ziyou', idx) reproduces the exact lines + line breaks", () => {
+  it("the SAME number is the SAME poem regardless of the form argument (one global catalog)", () => {
+    const idx = anyTextIndex(lines7)!.index;
+    const a = pullByIndex("wujue", idx);
+    const b = pullByIndex("qilu", idx);
+    const c = pullByIndex("ziyou", idx);
+    expect(a!.lines).toEqual(b!.lines);
+    expect(a!.lines).toEqual(c!.lines);
+    expect(a!.form).toBe("qijue"); // 4×7 → 七绝 inferred, whatever the arg
+  });
+
+  it("DEDUP: the same poem as a fixed form vs as 自由 yields the IDENTICAL index (no 一首诗两个编号)", () => {
+    const asFixed = anyTextIndex(lines5)!.index; // 探诗 grid path
+    const asFree = anyTextIndex([...lines5])!.index; // 自由 lines path
+    expect(asFixed).toBe(asFree); // identical by construction (same chars+breaks → same anyRank)
+    // and it is DISTINCT from the legacy per-form babelRank that used to cause the collision
+    expect(asFixed).not.toBe(textBabelIndex("wujue", lines5.join(""))!.index);
+  });
+
+  it("自由: anyTextIndex(lines) → pullByIndex reproduces the exact lines + line breaks", () => {
     const lines = [charset.slice(0, 3).join(""), charset.slice(3, 5).join(""), charset.slice(5, 10).join("")];
     const r = anyTextIndex(lines);
-    expect(r).not.toBeNull();
     expect(r!.chars).toBe(10);
     expect(r!.lines).toBe(3);
-    const back = pullByIndex("ziyou", r!.index);
-    expect(back!.lines).toEqual(lines);
+    expect(pullByIndex("ziyou", r!.index)!.lines).toEqual(lines);
   });
 
-  it("textBabelIndex rejects wrong-length or out-of-字库 input (so the grid only ranks valid poems)", () => {
+  it("textBabelIndex rejects wrong-length or out-of-字库 input (per-form rank stays well-defined)", () => {
     expect(textBabelIndex("wujue", charset.slice(0, 19).join(""))).toBeNull(); // 19 ≠ 20
     expect(textBabelIndex("wujue", charset.slice(0, 19).join("") + "Z")).toBeNull(); // Z dropped → 19
   });

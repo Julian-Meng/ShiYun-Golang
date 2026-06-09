@@ -73,7 +73,7 @@ export function PoemGuides() {
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      uniforms: { uTime: { value: poemClock.t }, uGrow: { value: 0 }, uAlpha: { value: 0 } },
+      uniforms: { uTime: { value: poemClock.t }, uGrow: { value: 0 }, uAlpha: { value: 0 }, uBright: { value: 1 } },
       vertexShader: /* glsl */ `
         attribute vec3 aColor; attribute vec3 aCenter; attribute float aOmega;
         uniform float uTime; uniform float uGrow;
@@ -88,8 +88,8 @@ export function PoemGuides() {
           gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0);
         }`,
       fragmentShader: /* glsl */ `
-        uniform float uAlpha; varying vec3 vColor;
-        void main() { gl_FragColor = vec4(vColor * 0.85, uAlpha); }`,
+        uniform float uAlpha; uniform float uBright; varying vec3 vColor;
+        void main() { gl_FragColor = vec4(vColor * 0.85 * uBright, uAlpha); }`,
     });
     const lines = new THREE.LineSegments(geo, mat);
     lines.frustumCulled = false;
@@ -110,6 +110,7 @@ export function PoemGuides() {
     const st = useStore.getState();
     const hold = st.guideMode === "hold"; // 常驻: keep the lines up; flash: hold for guideSeconds then fade
     const showSec = Math.max(1, st.guideSeconds); // per-click display time (flash mode)
+    g.mat.uniforms.uBright.value = st.guideBrightness; // adjustable 指引线亮度 (item 4)
     const t = poemClock.t; // advanced by PoemOrbits
     g.mat.uniforms.uTime.value = t;
     const age = t - g.born;

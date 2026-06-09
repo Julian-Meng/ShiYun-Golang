@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "../state/store";
 
 // 诗云设置 menu — collects the 指引 / 行星 / 赠诗 / 引力 controls (moved out of the HUD top bar). Opened by
@@ -18,6 +19,8 @@ export function SettingsMenu() {
   const setGuideCoverage = useStore((s) => s.setGuideCoverage);
   const guideSeconds = useStore((s) => s.guideSeconds);
   const setGuideSeconds = useStore((s) => s.setGuideSeconds);
+  const guideBrightness = useStore((s) => s.guideBrightness);
+  const setGuideBrightness = useStore((s) => s.setGuideBrightness);
   const resetGuide = useStore((s) => s.resetGuide);
   const showAllPoems = useStore((s) => s.showAllPoems);
   const toggleAllPoems = useStore((s) => s.toggleAllPoems);
@@ -26,9 +29,27 @@ export function SettingsMenu() {
   const gravity = useStore((s) => s.gravity);
   const toggleGravity = useStore((s) => s.toggleGravity);
 
+  // DRAGGABLE (item 2): default below the top bar + left of the right-side panels (诗人/诗 panels), so it
+  // never traps behind them — drag the header to move it anywhere and watch the effect live.
+  const [pos, setPos] = useState({ x: 360, y: 56 });
+  const dragRef = useRef<{ ox: number; oy: number } | null>(null);
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!dragRef.current) return;
+      setPos({ x: Math.max(4, e.clientX - dragRef.current.ox), y: Math.max(4, e.clientY - dragRef.current.oy) });
+    };
+    const onUp = () => (dragRef.current = null);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
   if (!open) return null;
 
-  const guideDefault = guideMode === "flash" && guideCoverage === "optimized" && guideSeconds === 10;
+  const guideDefault = guideMode === "flash" && guideCoverage === "optimized" && guideSeconds === 10 && guideBrightness === 0.7;
   const allDefault = guideDefault && !showAllPoems && !showGifts && gravity;
   const resetAll = () => {
     resetGuide();
@@ -38,9 +59,12 @@ export function SettingsMenu() {
   };
 
   return (
-    <div className="settings">
-      <div className="set-head">
-        <span>诗云设置</span>
+    <div className="settings" style={{ left: pos.x, top: pos.y, right: "auto" }}>
+      <div
+        className="set-head drag"
+        onPointerDown={(e) => (dragRef.current = { ox: e.clientX - pos.x, oy: e.clientY - pos.y })}
+      >
+        <span>诗云设置 ⠿</span>
         <button className="set-close" onClick={toggleSettings} title="关闭">×</button>
       </div>
 
@@ -74,6 +98,20 @@ export function SettingsMenu() {
             className="set-slider"
           />
           <span className="set-val">{guideMode === "flash" ? `${guideSeconds}s` : guideMode === "hold" ? "常驻" : "—"}</span>
+        </div>
+        <div className="set-row">
+          <span className="set-sub">亮度</span>
+          <input
+            type="range"
+            min={0.2}
+            max={2}
+            step={0.05}
+            value={guideBrightness}
+            disabled={guideMode === "off"}
+            onChange={(e) => setGuideBrightness(Number(e.target.value))}
+            className="set-slider"
+          />
+          <span className="set-val">{guideBrightness.toFixed(2)}×</span>
         </div>
         <button className="set-reset" onClick={resetGuide} disabled={guideDefault}>指引恢复默认</button>
       </div>

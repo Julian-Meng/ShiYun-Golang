@@ -1,18 +1,16 @@
 import { useRef, useState } from "react";
-import { searchPoets, searchByLine, searchPoems, loadPoetPoems, type PoetRow, type LineHit } from "../data/load";
+import { searchPoets, searchByLine, searchPoems, loadPoetPoems, getPoet, type PoetRow, type LineHit } from "../data/load";
 import { DYNASTY_BY_KEY, DYNASTIES } from "../data/dynasties";
 import {
   halfIndexAuto,
   pullByIndex,
   pulledFromIndex,
-  textBabelIndex,
   anyTextIndex,
   inCharset,
   type HalfIndex,
   type IndexPoem,
   type PullForm,
 } from "../engine/engineApi";
-import type { FormId } from "../engine/engine";
 import { useStore } from "../state/store";
 import { poemPosition } from "../three/positions";
 import { CopyButton } from "./CopyButton";
@@ -37,7 +35,9 @@ const HAN = /\p{Script=Han}/u;
 const hanChars = (s: string) => [...s].filter((c) => HAN.test(c)); // keep only 汉字 (drop pinyin / 标点 / 空白)
 
 type Tab = "poet" | "line" | "compose" | "dynasty";
-type RealHit = { name: string; title: string; approx?: boolean } | null;
+// when a composed / reverse-looked-up poem turns out to be a REAL corpus poem, carry its poet+index so
+// 定位 flies to that poet's ACTUAL orbiting planet (item 1) instead of a random void-scatter point.
+type RealHit = { name: string; title: string; approx?: boolean; poetId: string; poemIdx: number; firstLine: string } | null;
 
 // Same-length near-match: identical, OR differs by ≤2 chars (and ≥85%) — so popular variants of a real
 // poem still register (静夜思「举头望明月」 vs the corpus「举头望山月」; 的/地…). Different-length variants
@@ -61,8 +61,9 @@ async function findReal(lines: string[]): Promise<RealHit> {
     const poems = await loadPoetPoems(h.poetId);
     const corpus = poems[h.poemIdx]?.p.join("") ?? "";
     if (!corpus) continue;
-    if (corpus === text) return { name: h.poet?.name ?? "佚名", title: h.title || "无题" };
-    if (nearMatch(corpus, text)) return { name: h.poet?.name ?? "佚名", title: h.title || "无题", approx: true };
+    const base = { name: h.poet?.name ?? "佚名", title: h.title || "无题", poetId: h.poetId, poemIdx: h.poemIdx, firstLine: h.firstLine };
+    if (corpus === text) return base;
+    if (nearMatch(corpus, text)) return { ...base, approx: true };
   }
   return null;
 }
@@ -136,6 +137,15 @@ export function SearchPanel() {
     lockPoem(h.poet.id, h.poemIdx);
     pulseAt(poemPosition(h.poet, h.poemIdx), true);
   }
+  // item 1: a composed / reverse poem that IS a real corpus poem flies to that poet's ACTUAL orbiting
+  // planet (around 李白 for 赠汪伦), not a random void-scatter point — it already has a real home.
+  function goReal(hit: NonNullable<RealHit>) {
+    const poet = getPoet(hit.poetId);
+    if (!poet) return;
+    goPoet(poet, { poemIdx: hit.poemIdx, title: hit.title, firstLine: hit.firstLine });
+    lockPoem(poet.id, hit.poemIdx);
+    pulseAt(poemPosition(poet, hit.poemIdx), true);
+  }
 
   // ── 造诗·填字 → 编号 ──────────────────────────────────────────────────────
   // Recompute the catalog 编号 from the chars the user typed (fixed grid, or 自由 lines). No number
@@ -158,10 +168,12 @@ export function SearchPanel() {
     const chars = hanChars(gridT); // only 汉字 (pinyin / 标点 / latin dropped → IME + paste both work)
     if (chars.length < L) return setMade(null); // not enough chars yet
     const use = chars.slice(0, L);
-    const r = textBabelIndex(form as FormId, use.join(""));
-    if (!r) return setMade(null); // some char not in 字库
     const lines: string[] = [];
     for (let i = 0; i < g.rows; i++) lines.push(use.slice(i * g.cols, (i + 1) * g.cols).join(""));
+    // UNIVERSAL 全集编号 (anyTextIndex over chars+breaks) — the SAME number as this poem's 自由 form, so a
+    // 七绝 and its 自由 twin share ONE unique 编号 (no per-form collision, no duplicate).
+    const r = anyTextIndex(lines);
+    if (!r) return setMade(null); // some char not in 字库
     setMade({ lines, index: r.index, digits: r.digits, chars: use.length });
     const token = ++madeReqRef.current;
     findReal(lines).then((hit) => madeReqRef.current === token && setMadeReal(hit));
@@ -186,10 +198,10 @@ export function SearchPanel() {
 
   // ── 造诗·凭编号 → 诗 (reverse) ────────────────────────────────────────────
   function runReverse(form: PullForm, v: string) {
-    const r = pullByIndex(form, v);
+    const r = pullByIndex(form, v); // UNIVERSAL: form arg ignored; the number self-describes its poem
     setRev(r);
     setRevReal(null);
-    if (r?.inRange && form !== "ziyou" && r.lines.length) {
+    if (r && r.lines.length) {
       const token = ++revReqRef.current;
       findReal(r.lines).then((hit) => revReqRef.current === token && setRevReal(hit));
     }
@@ -270,10 +282,10 @@ export function SearchPanel() {
           <div className="lr-section">
             <div className="lr-head">纯随机 · 半编号<CopyButton text={half.index} /></div>
             <div className="half-note">
-              若作为《{FORM_LABEL[half.form]}》开头,前 {half.locked} 字锁定了高位编号:
+              前 {half.locked} 字锁定了全集编号的高位 —— 任何以此开头的诗都共享这段前缀:
             </div>
             <div className="half-idx full">{half.index}</div>
-            <button className="locate-btn" onClick={() => locateInVoid(half.form, half.index)}>
+            <button className="locate-btn" onClick={() => locateInVoid("ziyou", half.index)}>
               🛸 飞到这条高位街区 · 点亮代表星
             </button>
           </div>
@@ -355,13 +367,19 @@ export function SearchPanel() {
                     ))}
                   </div>
                   <div className="lr-head">
-                    {FORM_LABEL[composeForm] === "自由" ? "自由目录编号" : "全集编号"} · {made.digits} 位
+                    全集编号 · {made.digits} 位 · 唯一（跨诗体）
                     <CopyButton text={made.index} />
                   </div>
                   <div className="half-idx full">{made.index}</div>
-                  <button className="locate-btn" onClick={() => locateInVoid(composeForm, made.index)}>
-                    🛸 定位虚空 · 飞过去点亮这首诗
-                  </button>
+                  {madeReal ? (
+                    <button className="locate-btn real" onClick={() => goReal(madeReal)}>
+                      🛸 飞到 {madeReal.name}《{madeReal.title}》的真实行星{madeReal.approx ? "（近似）" : ""}
+                    </button>
+                  ) : (
+                    <button className="locate-btn" onClick={() => locateInVoid(composeForm, made.index)}>
+                      🛸 定位虚空 · 飞过去点亮这首诗
+                    </button>
+                  )}
                   {madeReal && (
                     <div className="rev-real">
                       {madeReal.approx
@@ -382,39 +400,41 @@ export function SearchPanel() {
 
           {composeDir === "reverse" && (
             <div className="lr-section">
-              <div className="lr-head">粘贴编号 · 反查它是哪首《{FORM_LABEL[composeForm]}》</div>
+              <div className="lr-head">粘贴编号 · 反查它是哪首诗（编号唯一,自带诗体）</div>
               <textarea
                 className="idx-input"
                 value={idxInput}
-                placeholder={composeForm === "ziyou" ? "粘贴一个自由编号(任意长)…" : "粘贴一个全集编号(纯数字)…"}
+                placeholder="粘贴一个全集编号(纯数字,任意长)…"
                 onChange={(e) => onChangeIndex(e.target.value)}
                 spellCheck={false}
                 rows={3}
               />
-              {rev &&
-                (rev.inRange ? (
-                  <div className="rev-poem">
-                    <div className="poem-body" lang="zh">
-                      {rev.lines.map((l, i) => (
-                        <div className={rev.form === "ziyou" ? "poem-line wrap" : "poem-line"} key={i}>{l}</div>
-                      ))}
-                    </div>
+              {rev && rev.lines.length > 0 && (
+                <div className="rev-poem">
+                  <div className="poem-body" lang="zh">
+                    {rev.lines.map((l, i) => (
+                      <div className={rev.form === "ziyou" ? "poem-line wrap" : "poem-line"} key={i}>{l}</div>
+                    ))}
+                  </div>
+                  <div className="half-note dim">推断诗体 · {FORM_LABEL[rev.form] ?? "古体/自由"}</div>
+                  {revReal ? (
+                    <button className="locate-btn real" onClick={() => goReal(revReal)}>
+                      🛸 飞到 {revReal.name}《{revReal.title}》的真实行星{revReal.approx ? "（近似）" : ""}
+                    </button>
+                  ) : (
                     <button className="locate-btn" onClick={() => locateInVoid(rev.form, rev.index)}>
                       🛸 定位虚空 · 飞过去点亮这首诗
                     </button>
-                    {revReal && (
-                      <div className="rev-real">
-                        {revReal.approx
-                          ? `🎯 这串编号几乎对应一首真实的诗(用字略有异文):${revReal.name}《${revReal.title}》`
-                          : `🎯 这串编号正好对应一首真实存在的诗:${revReal.name}《${revReal.title}》`}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="half-note dim">
-                    此编号超出《{FORM_LABEL[composeForm]}》目录范围(约 {rev.cardinalityDigits} 位)。换个诗体试试。
-                  </div>
-                ))}
+                  )}
+                  {revReal && (
+                    <div className="rev-real">
+                      {revReal.approx
+                        ? `🎯 这串编号几乎对应一首真实的诗(用字略有异文):${revReal.name}《${revReal.title}》`
+                        : `🎯 这串编号正好对应一首真实存在的诗:${revReal.name}《${revReal.title}》`}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

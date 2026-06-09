@@ -283,7 +283,7 @@ export function SearchPanel() {
             </div>
           )}
           <div className="lr-section">
-            <div className="lr-head">纯随机 · 半编号<CopyButton text={half.index} /></div>
+            <div className="lr-head">虚空 · 半编号<CopyButton text={half.index} /></div>
             <div className="half-note">
               前 {half.locked} 字锁定了全集编号的高位 —— 任何以此开头的诗都共享这段前缀:
             </div>

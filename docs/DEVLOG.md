@@ -10,6 +10,57 @@ real GPU. Data dirs (`poems/`, `lines/`) are git-ignored — see HANDOFF "data p
 
 ---
 
+## 2026-06-09 — Session: 8th agent (pre-launch review — UI polish, data audit, feedback backend, deploy)
+
+Final pre-launch pass. Verify gate green every round: `tsc --noEmit` + `vite build` + **89 tests**; UI
+changes additionally eyeballed via `preview_eval` DOM measurement (screenshots time out on the WebGL canvas).
+Commits `0ac0bd7`→`140dc3b` on `main`.
+
+**Round 1 — 奇迹时刻 polish + data audit + feedback backend + deploy** (`9e70d8a`)
+- **画框 removed** (`ui/Cinema.tsx` + CSS): the gold frame + corner brackets collided with the 退出 button — gone.
+- **Tagline no longer orphans its last char**: `.cinema-tag-text { text-wrap: balance }` + auto-margin full-width
+  centering (was `left:50%`-anchored, capping the box at half-width). 1-line on desktop, balanced 2–3 on mobile.
+- **Poem card pan + zoom**: the centred card is drag-to-move + pinch/wheel/± zoom (+ reset) so the user composes
+  the shot. Pointer-events opt-in; `setPointerCapture` wrapped in try/catch.
+- **Data audit** (`docs/DATA_AUDIT.md` NEW, multi-agent web survey + adversarial verify): verdict **SHIP AS-IS**.
+  Werneror+yuxqiu is the *optimal fit* (only broad+Simplified+permissive+parseable corpus); *not* the most
+  comprehensive (ORCHESTRA-simple-1M +28% but Traditional/encumbered); *not* complete (明/清 ceiling — no 全清诗
+  exists anywhere). Corrected stale `chinese-poetry`-as-live-overlay copy in README + DATA_CONTRACT (the build
+  reads only Werneror + yuxqiu); reframed 857,877 as a raw upstream count.
+- **Feedback backend** (`state/feedback.ts`, `vite-env.d.ts` NEW, `.env.example` NEW): `submitFeedback` now ALSO
+  POSTs `{source,message,ts}` to `VITE_FEEDBACK_ENDPOINT` when set (fire-and-forget, keepalive); localStorage
+  stays the source of truth; unset ⇒ 100% static. Both paths verified in-browser.
+- **Build hardening** (`pipeline/build-data.mjs`): a missing `C:/corpus/modern-poetry` now **fails loud** (was a
+  WARN-only `try/catch` that silently dropped the 508 modern poets and desynced the index). Opt out: `ALLOW_NO_MODERN=1`.
+
+**Round 2 — data loading fix** (no code change; `f03b437` docs)
+- A fresh worktree shows a poet's poem COUNT (from git-tracked `poets.index.json`) but can't LOAD poems: the
+  `public/data/{poems,lines,search}` buckets are git-ignored. Provisioned them by junctioning from the main
+  worktree (李白 → 1107 poems load, bucket `206` raw). Rewrote `docs/DEPLOY.md §1` to lead with **provisioning the
+  git-ignored data FIRST** (copy/junction the existing complete copy vs regenerate) + a 运维 Quickstart.
+
+**Round 3 — 搜的这首 + emoji + button size** (`140bd → 140dc3b`)
+- **`搜的这首` hit badge → its own line** (`.pi-hit { display:block }`): a 1-char title (秋/句) is no longer
+  squeezed/truncated by it (verified: badge sits a line below the title).
+- **Removed all decorative emojis** → clean monochrome text (🔗📷💬🌟🛸🎯⚙⌨ gone; kept clean ✓ ✕ ⟲).
+- **统一大小**: 分享 (`.copy-btn.share`) and 奇迹时刻 (`.cinema-btn`) now share one size (11px / 3px 10px / radius 6px).
+- **Cinema zoom** uses a clean `−` (U+2212) / `+` instead of full-width `＋／－`.
+
+**Round 4 — long-poem clipping + wording + 开源致谢 + deploy callout** (this entry)
+- **Long poems no longer clipped** (`.cinema-poem`): dropped `overflow:hidden` + `max-width:88vw` + `max-height:58vh`
+  so the poem renders at FULL length (may extend past the viewport) — the user zooms out with `−` + drags to
+  compose, instead of the left columns being occluded. (Verified: `overflow:visible; max-width:none; max-height:none`.)
+- **Less "technical" wording** (`ui/HUD.tsx`, `PoemPanel`, `SearchPanel`): 生成→捕捉, 随机→虚空 ("点击虚空时捕捉的
+  诗体", "只捕捉合平仄、押韵的诗", "非格律 · 虚空目录", "虚空 · 半编号"). Zero 生成/随机 left in the rendered UI.
+- **开源致谢 modal** (`ui/SettingsMenu.tsx` `Credits` + CSS): a third link beside GitHub opens an acknowledgements
+  modal thanking **15 open-source projects** across 渲染/工具链/语料 (three.js, R3F fiber/drei/postprocessing, React,
+  Zustand, Vite, TypeScript, Vitest, opencc-js, pinyin-pro, Werneror/Poetry, yuxqiu/modern-poetry,
+  chinese_word_rhyme, chinese-poetry) with links + licenses, plus the 刘慈欣《诗云》/博尔赫斯《巴别图书馆》 inspiration.
+- **Deploy doc** (`docs/DEPLOY.md`): added a 🟡 **ACTION FOR 运维** callout — the server-side feedback store is NOT
+  set up (no table/KV); stand one up + set `VITE_FEEDBACK_ENDPOINT` only if cross-device feedback is wanted (§5).
+
+---
+
 ## 2026-06-09 — Session: 7th agent · round 3 (UI polish — 竖排分享卡 + 设置→更多 + 个人链接 + 页内反馈)
 
 Mostly UI, per the user's screenshots. Verify gate green: tsc + vite build + **89 tests**.

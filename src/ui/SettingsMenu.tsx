@@ -46,6 +46,75 @@ function FeedbackBox() {
   );
 }
 
+// 开源致谢 — 诗云站在这些开源项目的肩上。点「开源致谢」弹出,逐一致谢渲染/工具链/语料,附链接与许可。
+const CREDITS: { group: string; items: { name: string; url: string; note: string; lic: string }[] }[] = [
+  {
+    group: "渲染 · 前端",
+    items: [
+      { name: "three.js", url: "https://threejs.org", note: "WebGL 星空渲染", lic: "MIT" },
+      { name: "@react-three/fiber", url: "https://github.com/pmndrs/react-three-fiber", note: "React × three.js 渲染器", lic: "MIT" },
+      { name: "@react-three/drei", url: "https://github.com/pmndrs/drei", note: "R3F 辅助组件", lic: "MIT" },
+      { name: "@react-three/postprocessing", url: "https://github.com/pmndrs/react-postprocessing", note: "UnrealBloom 辉光后期", lic: "MIT" },
+      { name: "React", url: "https://react.dev", note: "界面框架", lic: "MIT" },
+      { name: "Zustand", url: "https://github.com/pmndrs/zustand", note: "状态管理", lic: "MIT" },
+    ],
+  },
+  {
+    group: "构建 · 工具链",
+    items: [
+      { name: "Vite", url: "https://vitejs.dev", note: "构建 / 开发服务器", lic: "MIT" },
+      { name: "TypeScript", url: "https://www.typescriptlang.org", note: "类型系统", lic: "Apache-2.0" },
+      { name: "Vitest", url: "https://vitest.dev", note: "引擎往返测试", lic: "MIT" },
+      { name: "opencc-js", url: "https://github.com/nk2028/opencc-js", note: "繁简转换 · 平水韵构建", lic: "MIT" },
+      { name: "pinyin-pro", url: "https://github.com/zh-lx/pinyin-pro", note: "拼音 / 声调 · 格律构建", lic: "MIT" },
+    ],
+  },
+  {
+    group: "语料 · 数据",
+    items: [
+      { name: "Werneror/Poetry", url: "https://github.com/Werneror/Poetry", note: "全历代语料骨架 · 先秦→当代", lic: "MIT" },
+      { name: "yuxqiu/modern-poetry", url: "https://github.com/yuxqiu/modern-poetry", note: "现代新诗", lic: "Apache-2.0" },
+      { name: "chinese_word_rhyme", url: "https://github.com/charlesix59/chinese_word_rhyme", note: "平水韵 · 声调 / 韵部", lic: "MIT" },
+      { name: "chinese-poetry", url: "https://github.com/chinese-poetry/chinese-poetry", note: "唐宋语料 · 评估参考", lic: "MIT" },
+    ],
+  },
+];
+
+function Credits() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button className="set-link" onClick={() => setOpen(true)}>开源致谢</button>
+      {open && (
+        <div className="credits-overlay" onClick={() => setOpen(false)}>
+          <div className="credits-card" onClick={(e) => e.stopPropagation()}>
+            <div className="credits-head">
+              <span>开源致谢 · 站在巨人的肩上</span>
+              <button className="set-close" onClick={() => setOpen(false)} aria-label="关闭">×</button>
+            </div>
+            <p className="credits-intro">诗云由这些开源项目共同托起 —— 谨致谢忱。</p>
+            {CREDITS.map((g) => (
+              <div key={g.group} className="credits-group">
+                <div className="credits-gtitle">{g.group}</div>
+                <ul className="credits-list">
+                  {g.items.map((it) => (
+                    <li key={it.name}>
+                      <a href={it.url} target="_blank" rel="noopener noreferrer">{it.name}</a>
+                      <span className="credits-note">{it.note}</span>
+                      <span className="credits-lic">{it.lic}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <p className="credits-foot">灵感 · 刘慈欣《诗云》 · 博尔赫斯《巴别图书馆》</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // 诗云设置 menu — collects the 指引 / 行星 / 赠诗 / 引力 controls (moved out of the HUD top bar). Opened by
 // the HUD 更多 button. 赠诗漫游 stays a separate panel (it only shows when 赠诗 is on). 恢复默认 = the
 // app defaults (指引 一次性·优化·10s; 行星 关; 赠诗 关; 引力 开).
@@ -201,6 +270,7 @@ export function SettingsMenu() {
         <div className="set-links">
           <a className="set-link" href="https://cohenjikan.com" target="_blank" rel="noopener noreferrer">个人主页 ↗</a>
           <a className="set-link" href="https://github.com/Cohenjikan" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+          <Credits />
         </div>
         <FeedbackBox />
       </div>

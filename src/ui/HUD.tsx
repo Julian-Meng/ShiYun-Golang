@@ -61,7 +61,7 @@ export function HUD() {
         <div className="title" onClick={onLogoTap} style={{ cursor: "pointer" }}>
           诗云 <span className="title-en">Poetry Cloud</span>
         </div>
-        <div className="seg" title="点击虚空时生成的诗体">
+        <div className="seg" title="点击虚空时捕捉的诗体">
           {FORMS.map((f) => (
             <button
               key={f.id}
@@ -76,7 +76,7 @@ export function HUD() {
         <button
           className={commonOnly ? "filter on" : "filter"}
           onClick={toggleCommon}
-          title="只用最常见的字生成,避开生僻乱码"
+          title="只用最常见的字,避开生僻乱码"
         >
           常用字
         </button>
@@ -84,7 +84,7 @@ export function HUD() {
           <button
             className={lushi ? "filter on" : "filter"}
             onClick={toggleLushi}
-            title="只生成合平仄、押韵的诗（平水韵）"
+            title="只捕捉合平仄、押韵的诗（平水韵）"
           >
             格律
           </button>

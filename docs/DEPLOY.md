@@ -19,13 +19,21 @@ cd C:\Users\Cohen\Desktop\shiyun     # the main worktree — already has the com
 git pull                             # fast-forward to the latest merged code
 npm ci
 npm run deploy:build                 # tsc + vite build → dist/ (heavy data baked in) + precompress
-#  → serve dist/ per §2–§3.  Optional: wire feedback collection per §5.
+#  → serve dist/ per §2–§3.
 ```
 
 > ⚠ **If a poet shows a poem COUNT but "载入作品…" never finishes, the data is missing — see §1.** That count
 > comes from the git-tracked `poets.index.json`; the actual poems live in the git-ignored `poems/` buckets. A
 > fresh clone has none. **Do not** "fix" it by running `build-data.mjs` unless you have the corpora cloned (§1
 > Option B) — provision the existing data instead (§1 Option A).
+
+> 🟡 **ACTION FOR 运维 — the feedback backend is NOT set up yet (by design).** The app ships with in-page
+> feedback that saves to each visitor's `localStorage` only (per-browser; the in-app inbox says so). There is
+> **no server-side feedback store yet** — no table/KV exists. If the owner wants a shared, cross-device feedback
+> inbox, **you must stand one up** (a ~30-line Cloudflare Worker + KV, or a Formspree form) and set
+> `VITE_FEEDBACK_ENDPOINT` before building. Full steps + paste-ready Worker in **§5**. If cross-device feedback
+> isn't wanted, do nothing — leaving the env var unset keeps the build 100% static. The rest of the app never
+> needs a backend.
 
 ## 1. Build
 

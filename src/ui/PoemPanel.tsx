@@ -68,7 +68,7 @@ export function PoemPanel() {
                 {selected.lushiIndex}
               </span>
             ) : (
-              <span className="meta-v muted">非格律 · 纯随机目录</span>
+              <span className="meta-v muted">非格律 · 虚空目录</span>
             )}
           </div>
         )}

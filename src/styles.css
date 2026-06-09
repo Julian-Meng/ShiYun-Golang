@@ -1821,14 +1821,12 @@ canvas {
   cursor: grab;
   will-change: transform;
 }
-/* classical 竖排: each line is an upright column; columns flow right→left (so a long poem spreads
-   sideways and is never clipped at the bottom — fixes the truncation of long poems). */
+/* classical 竖排: each line is an upright column; columns flow right→left. NO max-width/height/overflow:
+   a long poem renders at FULL length (it may extend past the viewport edges) — the user zooms out with the
+   − control + drags to compose, instead of having the left columns clipped/occluded. */
 .cinema-poem {
   writing-mode: vertical-rl;
   text-orientation: upright;
-  max-height: 58vh;
-  max-width: 88vw;
-  overflow: hidden;
   font-family: var(--serif);
   font-size: clamp(19px, 3.6vh, 30px);
   letter-spacing: 0.18em;
@@ -1926,10 +1924,99 @@ canvas {
   font-size: 12px;
   padding: 6px 8px;
   text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
 }
 .set-link:hover {
   border-color: rgba(255, 210, 122, 0.5);
   color: var(--gold);
+}
+/* 开源致谢 modal (opened from the 关于·反馈 links row) — mirrors the feedback viewer overlay */
+.credits-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 3, 8, 0.6);
+  backdrop-filter: blur(4px);
+}
+.credits-card {
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  max-height: 80dvh;
+  overflow: auto;
+  background: linear-gradient(180deg, rgba(16, 18, 28, 0.97), rgba(8, 9, 16, 0.96));
+  border: 1px solid rgba(255, 210, 122, 0.22);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.6);
+}
+.credits-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--gold);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.credits-intro {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0 0 12px;
+}
+.credits-group {
+  margin-bottom: 12px;
+}
+.credits-gtitle {
+  color: var(--gold-soft);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  margin-bottom: 5px;
+}
+.credits-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.credits-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.credits-list a {
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 210, 122, 0.35);
+}
+.credits-list a:hover {
+  color: var(--gold);
+}
+.credits-note {
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+}
+.credits-lic {
+  color: rgba(185, 194, 214, 0.6);
+  font-size: 10px;
+  font-family: ui-monospace, Menlo, monospace;
+  flex: none;
+}
+.credits-foot {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
 }
 .set-feedback-open {
   width: 100%;

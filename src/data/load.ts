@@ -6,6 +6,9 @@ import type { Lexicon } from "../engine/engine";
 import { setDataset } from "./provider";
 import { hydrateLexicon, type LexiconAsset, type FirstLineRef, type GiftEdge, type GiftsAsset } from "./contract";
 import { hashStr } from "./dynasties";
+import { FAMOUS_POETS } from "./famousPoets";
+
+const FAMOUS_NAMES = new Set(FAMOUS_POETS.map((f) => f.name)); // rank landmark poets first in 诗句 hits
 
 let _realGelu = false;
 /** True once a real 平仄/平水韵 lexicon is loaded (so the UI can offer the 格律 mode). */
@@ -253,9 +256,14 @@ export async function searchByLine(query: string, base = "/data"): Promise<LineH
       for (const r of shard[sk] || []) add(r, han);
     }
   }
-  // a longer matched opening is more specific; then prefer the more prolific (better-known) poet
+  // a longer matched opening is more specific; then landmark poets (so a fuzzy 静夜思 beats a prolific
+  // minor poet who happens to share a skeleton); then the more prolific (better-known) poet.
+  const fam = (h: LineHit) => (h.poet && FAMOUS_NAMES.has(h.poet.name) ? 1 : 0);
   hits.sort(
-    (a, b) => b.firstLine.length - a.firstLine.length || (b.poet?.poemCount || 0) - (a.poet?.poemCount || 0),
+    (a, b) =>
+      b.firstLine.length - a.firstLine.length ||
+      fam(b) - fam(a) ||
+      (b.poet?.poemCount || 0) - (a.poet?.poemCount || 0),
   );
   return hits.slice(0, 30);
 }

@@ -28,12 +28,23 @@ function fnv32(s) {
 // 4096 buckets (3-hex) so each shard is small (~1 MB) → a fuzzy search loads only a few MB, not tens.
 const NBUCKETS = 4096;
 const bucketOf = (s) => (fnv32(s) & (NBUCKETS - 1)).toString(16).padStart(3, "0");
-const MINLEN = 4, MAXLEN = 10, CAP = 3, FLUSH = 1_500_000;
+const MINLEN = 4, MAXLEN = 10, CAP = 5, FLUSH = 1_500_000;
+
+// Landmark poets (mirror of src/data/famousPoets.ts) — a shared skeleton (e.g. 举头望月, written by
+// many) must KEEP its famous author (李白《静夜思》) rather than evict it for a hyper-prolific minor poet
+// (王世贞 8009首). So the per-skeleton cap ranks by a score that puts famous poets far above poemCount.
+const FAMOUS = new Set([
+  "屈原", "宋玉", "项羽", "司马相如", "蔡文姬", "曹操", "曹植", "阮籍", "陶渊明", "谢灵运", "鲍照", "庾信",
+  "杨广", "李白", "杜甫", "王维", "白居易", "李商隐", "杜牧", "李煜", "韦庄", "苏轼", "陆游", "李清照",
+  "辛弃疾", "王安石", "萧观音", "元好问", "关汉卿", "马致远", "白朴", "高启", "唐寅", "于谦", "纳兰性德",
+  "龚自珍", "袁枚", "秋瑾", "黄遵宪", "毛泽东", "徐志摩", "戴望舒", "闻一多", "艾青", "海子", "北岛", "顾城", "舒婷",
+]);
 
 const files = readdirSync(POEMS).filter((f) => /^[0-9a-f]{2}\.json$/.test(f));
 if (!files.length) { console.error(`no poems buckets under ${POEMS} — provision the data first.`); process.exit(1); }
 const poets = JSON.parse(readFileSync(join(DATA, "poets.index.json"), "utf8"));
-const pc = new Map(poets.map((p) => [p.id, p.poemCount || 0]));
+// rank score for the per-skeleton cap: famous poets win big, then by poemCount
+const score = new Map(poets.map((p) => [p.id, (FAMOUS.has(p.name) ? 1e9 : 0) + (p.poemCount || 0)]));
 
 if (existsSync(TMP)) rmSync(TMP, { recursive: true, force: true });
 mkdirSync(TMP, { recursive: true });
@@ -49,7 +60,7 @@ const flush = () => {
 for (const f of files.sort()) {
   const obj = JSON.parse(readFileSync(join(POEMS, f), "utf8"));
   for (const id in obj) {
-    const cnt = pc.get(id) || 0;
+    const sc = score.get(id) || 0;
     const arr = obj[id];
     for (let i = 0; i < arr.length; i++) {
       const pm = arr[i];
@@ -65,7 +76,7 @@ for (const f of files.sort()) {
           const b = bucketOf(sk);
           let a = buf.get(b);
           if (!a) { a = []; buf.set(b, a); }
-          a.push(JSON.stringify([sk, id, i, pm.t || "", pm.f, cnt]));
+          a.push(JSON.stringify([sk, id, i, pm.t || "", pm.f, sc]));
           if (++buffered >= FLUSH) flush();
         }
       }
@@ -83,11 +94,11 @@ for (let n = 0; n < NBUCKETS; n++) {
   const out = {}; // skeleton → [{p,i,t,f}] (+ _c during build)
   for (const line of readFileSync(tmpf, "utf8").split("\n")) {
     if (!line) continue;
-    const [sk, id, i, t, f, cnt] = JSON.parse(line);
+    const [sk, id, i, t, f, sc] = JSON.parse(line);
     let refs = out[sk];
     if (!refs) { refs = []; out[sk] = refs; keyN++; }
-    if (refs.length < CAP) refs.push({ p: id, i, t, f, _c: cnt });
-    else { let lo = 0; for (let k = 1; k < refs.length; k++) if (refs[k]._c < refs[lo]._c) lo = k; if (cnt > refs[lo]._c) refs[lo] = { p: id, i, t, f, _c: cnt }; }
+    if (refs.length < CAP) refs.push({ p: id, i, t, f, _c: sc });
+    else { let lo = 0; for (let k = 1; k < refs.length; k++) if (refs[k]._c < refs[lo]._c) lo = k; if (sc > refs[lo]._c) refs[lo] = { p: id, i, t, f, _c: sc }; }
   }
   writeFileSync(join(OUT, `${b}.json`), JSON.stringify(out, (k, v) => (k === "_c" ? undefined : v)));
 }

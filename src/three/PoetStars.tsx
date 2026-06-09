@@ -99,7 +99,7 @@ export function PoetStars() {
   // `built.geometry`, so the dynasty-filter aSize writes below also exclude hidden poets from picks.
   useEffect(() => {
     const picker = createGpuPicker(gl, camera, built.geometry, built.poets);
-    pickTargets.pick = (x, y) => picker.pick(x, y);
+    pickTargets.pick = (x, y, includePoems) => picker.pick(x, y, undefined, includePoems);
     if (import.meta.env.DEV) {
       // Headless round-trip self-test (no effect on the live view): project poet i to screen with a
       // controlled camera, GPU-pick there, and confirm the SAME poet comes back — exercises the full
@@ -119,7 +119,8 @@ export function PoetStars() {
         const cssX = (ndc.x * 0.5 + 0.5) * el.clientWidth;
         const cssY = (-ndc.y * 0.5 + 0.5) * el.clientHeight;
         const got = picker.pick(cssX, cssY, cam);
-        return { ok: got?.id === p.id, want: p.name, got: got?.name ?? null, gotId: got?.id ?? null, wantId: p.id };
+        const gotPoet = got?.kind === "poet" ? got.poet : null;
+        return { ok: gotPoet?.id === p.id, want: p.name, got: gotPoet?.name ?? null, gotId: gotPoet?.id ?? null, wantId: p.id };
       };
     }
     return () => {

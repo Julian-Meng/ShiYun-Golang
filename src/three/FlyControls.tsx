@@ -6,6 +6,7 @@ import { pullAt, COMMON_K } from "../engine/engineApi";
 import { loadPoetPoems } from "../data/load";
 import { pickTargets } from "./picking";
 import { spinXZ, unspinXZ, SPIN_RATE, GALAXY } from "./galaxyParams";
+import { poemPosition } from "./positions";
 
 const GRAVITY_R = GALAXY.RADIUS * 1.15; // inside this sphere the camera is "in the galaxy's grip"
 
@@ -34,9 +35,9 @@ export function FlyControls() {
     // offscreen buffer and reads the pixel under the cursor → the poet there. Replaces the old
     // O(29,808)/hover CPU scan + apparent-size heuristic. null = void (caller pulls a random poem);
     // also null until PoetStars mounts the picker. Coords are converted client → canvas-relative CSS.
-    const screenPick = (cx: number, cy: number) => {
+    const screenPick = (cx: number, cy: number, includePoems = false) => {
       const r = el.getBoundingClientRect();
-      return pickTargets.pick?.(cx - r.left, cy - r.top) ?? null;
+      return pickTargets.pick?.(cx - r.left, cy - r.top, includePoems) ?? null;
     };
 
     const isTyping = () => {
@@ -70,19 +71,25 @@ export function FlyControls() {
       const now = performance.now();
       if (now - lastHover.current > 70) {
         lastHover.current = now;
-        const p = screenPick(e.clientX, e.clientY);
-        const cur = st().hoverPoetId;
-        if ((p?.id ?? null) !== cur) st().setHover(p?.id ?? null);
+        const hit = screenPick(e.clientX, e.clientY); // hover = poets only (cheap; no poem layer)
+        const id = hit?.kind === "poet" ? hit.poet.id : null;
+        if (id !== st().hoverPoetId) st().setHover(id);
       }
     };
     const onUp = (e: PointerEvent) => {
       const wasClick = drag.current.active && drag.current.moved < 6;
       drag.current.active = false;
       if (!wasClick) return;
-      const poet = screenPick(e.clientX, e.clientY);
-      if (poet) {
-        st().selectPoet(poet);
+      const hit = screenPick(e.clientX, e.clientY, true); // click = poets + poem planets
+      if (hit?.kind === "poet") {
+        st().selectPoet(hit.poet);
+        loadPoetPoems(hit.poet.id).then((poems) => useStore.getState().setPoetPoems(hit.poet.id, poems));
+      } else if (hit?.kind === "poem") {
+        // clicked a poem-planet → open its poet panel focused on that poem + light the planet.
+        const { poet, poemIdx } = hit;
+        st().selectPoet(poet, { poemIdx, title: "", firstLine: "" });
         loadPoetPoems(poet.id).then((poems) => useStore.getState().setPoetPoems(poet.id, poems));
+        st().pulseAt(poemPosition(poet, poemIdx), true);
       } else {
         const v = ndc(e.clientX, e.clientY);
         ray.current.setFromCamera(v, camera);

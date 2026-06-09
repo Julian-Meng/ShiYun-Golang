@@ -152,9 +152,21 @@ node pipeline/build-lexicon.mjs                            # lexicon.json (needs
   (`store.pulseAt` = a flare WITHOUT changing selection, so the panel stays open). Works for the 八大家 and everyone.
 - ✅ **诗句 search → planet** — a 诗句 hit flies to the EXACT poem-planet in the poet's system (not just the poet centre)
   + flares it (`SearchPanel.goHit`).
-- ⏭ **NOT done: clicking a planet to open the poem** — needs a SEPARATE pick geometry + its own size gate (the poet
-  picker's `sz<4.4px` discard would eat small satellites; can't just reuse the poet picker). Deferred — locate/search
-  cover navigation. Next obvious step for this feature.
+- ✅ **Clicking a planet opens its poem** — `gpuPick` renders a SECOND pick layer (PoemOrbits' geometry + `aPickColor`,
+  poem ids offset by `POEM_PICK_BASE = 0x800000`) in the SAME offscreen pass as the poets (depth-tested → front-most
+  wins), CLICK-only (hover stays at just the 29k poets, cheap). A picked planet → `selectPoet(poet, {poemIdx})` (PoetPanel
+  opens focused on that poem) + flares it. `pickTargets.pick` now returns `PickResult = {kind:"poet"|"poem"}`; PoemOrbits
+  registers the active layer + a `resolve(localId)→{poet,poemIdx}` map via `pickTargets.poemLayer`. encode/decode + the
+  poet/poem id split have 5 new vitest cases (**62 total**). *(GPU pick can't run on the headless preview — the whole r3f
+  Canvas subtree is dormant on swiftshader; verify CLICKING a planet on a real GPU.)*
+
+### ⏭ Next round (user-requested visual polish — proposal then build)
+- **行星 ON looks "区块化" (blocky)** — each poet's flat x/z disc reads as a rectangular smear (esp. edge-on), so the
+  whole sky looks like colour blocks, not a star field. Likely fixes to weigh: (a) make each poem cloud 3D / spherical
+  with a soft gaussian radial falloff (no hard disc edge) so systems blend; (b) random per-poet orbital-plane tilt so
+  discs don't all align to the galaxy plane; (c) larger + sparser systems that dissolve into the field; (d) smaller
+  per-point size + lower additive brightness so blocks don't saturate. Tune on a real GPU. `positions.poemOffset` +
+  `PoemOrbits.planetMaterial`.
 
 **DONE — UX iteration round 5 (verified: build + 57/57 + DOM mount; centre confirmed 够散/漂亮 by the user on a real GPU):**
 - ✅ **造诗 placeholder simplified** — the long hint clipped in the 320px panel; placeholder is now 「粘贴整首诗…」 and the

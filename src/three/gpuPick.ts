@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { PoetRow } from "../data/load";
 import { galaxySpin } from "./galaxyParams";
+import { pickTargets, type PickResult } from "./picking";
 
 // GPU colour-ID picking — replaces the O(29,808)/hover CPU scan in FlyControls.screenPick.
 // Each poet's index is colour-encoded into a vertex attribute (aPickColor); on a pick we render
@@ -20,6 +21,31 @@ export const POET_SIZE_SCALE = 900; // MUST match the PoetStars vertex shader's 
 export function encodePickColor(i: number): [number, number, number] {
   const id = i + 1;
   return [(id & 255) / 255, ((id >> 8) & 255) / 255, ((id >> 16) & 255) / 255];
+}
+
+// Poems share the 24-bit id space with poets but live ABOVE this base (poets use 1..29,808), so a
+// decoded id ≥ POEM_PICK_BASE is a poem-planet. 0x800000 + max poems (~858k) < 16.7M → fits 24-bit.
+export const POEM_PICK_BASE = 0x800000;
+export function encodePoemPickColor(localId: number): [number, number, number] {
+  const id = POEM_PICK_BASE + localId; // always > poet ids and > 0 (never the background miss)
+  return [(id & 255) / 255, ((id >> 8) & 255) / 255, ((id >> 16) & 255) / 255];
+}
+
+// Like nearestPoetIndex but returns the RAW decoded id (0 = miss) so the caller can split poet vs poem.
+export function nearestPickId(buf: Uint8Array, n: number, radius: number): number {
+  let best = 0;
+  let bestD = Infinity;
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const o = (y * n + x) * 4;
+      const id = buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16);
+      if (id === 0) continue;
+      const dx = x - radius, dy = y - radius;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = id; }
+    }
+  }
+  return best;
 }
 
 // Scan an N×N RGBA readback for the non-background pixel CLOSEST to the window centre (the cursor),
@@ -44,7 +70,7 @@ export function nearestPoetIndex(buf: Uint8Array, n: number, radius: number): nu
 }
 
 export interface GpuPicker {
-  pick(cssX: number, cssY: number, cameraOverride?: THREE.Camera): PoetRow | null;
+  pick(cssX: number, cssY: number, cameraOverride?: THREE.Camera, includePoems?: boolean): PickResult | null;
   dispose(): void;
 }
 
@@ -93,6 +119,40 @@ export function createGpuPicker(
   const scene = new THREE.Scene();
   scene.add(group);
 
+  // Poem-planet pick layer — rendered in the SAME pass as the poets (depth-tested → front-most wins),
+  // ONLY on click (includePoems), so hover stays cheap. Apparent size mirrors the visual planet shader
+  // (uScale/maxPx supplied per active layer) so the clickable disc matches the drawn planet.
+  const poemMat = new THREE.ShaderMaterial({
+    transparent: false,
+    depthTest: true,
+    depthWrite: true,
+    blending: THREE.NoBlending,
+    uniforms: { uScale: { value: 360 }, uMax: { value: 11 }, uGate: { value: 3.0 } },
+    vertexShader: /* glsl */ `
+      attribute vec3 aPickColor;
+      uniform float uScale; uniform float uMax; uniform float uGate;
+      varying vec3 vPick;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        float sz = clamp(uScale / -mv.z, 1.0, uMax); // SAME apparent size as the visual planet
+        if (sz < uGate) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
+        gl_PointSize = clamp(sz, uGate, uMax);
+        vPick = aPickColor;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */ `
+      varying vec3 vPick;
+      void main() {
+        if (length(gl_PointCoord - 0.5) > 0.5) discard; // round disc = the planet's clickable area
+        gl_FragColor = vec4(vPick, 1.0);
+      }`,
+  });
+  const emptyGeo = new THREE.BufferGeometry();
+  const poemPoints = new THREE.Points(emptyGeo, poemMat);
+  poemPoints.frustumCulled = false;
+  poemPoints.visible = false;
+  group.add(poemPoints); // same group → shares the galaxy-spin rotation as the poems' visual layer
+
   const rt = new THREE.WebGLRenderTarget(1, 1, {
     minFilter: THREE.NearestFilter,
     magFilter: THREE.NearestFilter,
@@ -103,7 +163,12 @@ export function createGpuPicker(
   const sizeV = new THREE.Vector2();
   const clearC = new THREE.Color();
 
-  function pick(cssX: number, cssY: number, camera: THREE.Camera = defaultCamera): PoetRow | null {
+  function pick(
+    cssX: number,
+    cssY: number,
+    camera: THREE.Camera = defaultCamera,
+    includePoems = false,
+  ): PickResult | null {
     const pr = gl.getPixelRatio();
     gl.getDrawingBufferSize(sizeV);
     const fullW = sizeV.x, fullH = sizeV.y;
@@ -119,8 +184,22 @@ export function createGpuPicker(
 
     // sync the pick group to the live spin (exact float match with the visual poet group) + gate
     group.rotation.y = galaxySpin.angle;
-    group.updateMatrixWorld(true);
     (material.uniforms.uGate.value as number) = gate;
+
+    // poem-planet layer (CLICK only — keeps hover at just the 29k poets). Swap to whatever PoemOrbits
+    // currently shows (selected poet's poems, or all) + mirror its apparent size so the pick disc
+    // matches the drawn planet. Both layers share `group`, so they spin together and depth-test as one.
+    const layer = includePoems ? pickTargets.poemLayer : null;
+    if (layer) {
+      if (poemPoints.geometry !== layer.geometry) poemPoints.geometry = layer.geometry;
+      (poemMat.uniforms.uScale.value as number) = layer.sizeScale;
+      (poemMat.uniforms.uMax.value as number) = layer.maxPx;
+      (poemMat.uniforms.uGate.value as number) = Math.min(gate, 3.0 * pr); // planets are smaller than stars
+      poemPoints.visible = true;
+    } else {
+      poemPoints.visible = false;
+    }
+    group.updateMatrixWorld(true);
 
     // render ONLY the n×n window of the full framebuffer centred on the cursor pixel into the n×n
     // RT (1:1 mapping → gl_PointSize stays in true framebuffer px). All 29k vertices run but the
@@ -149,12 +228,20 @@ export function createGpuPicker(
     }
 
     gl.readRenderTargetPixels(rt, 0, 0, n, n, buf);
-    const idx = nearestPoetIndex(buf, n, radius);
-    return idx >= 0 && idx < poets.length ? poets[idx] : null;
+    const id = nearestPickId(buf, n, radius);
+    if (id <= 0) return null;
+    if (id >= POEM_PICK_BASE) {
+      const r = layer?.resolve(id - POEM_PICK_BASE) ?? null; // decode poem-planet → poet + poem index
+      return r ? { kind: "poem", poet: r.poet, poemIdx: r.poemIdx } : null;
+    }
+    const i = id - 1; // poet id = index + 1
+    return i >= 0 && i < poets.length ? { kind: "poet", poet: poets[i] } : null;
   }
 
   function dispose() {
     material.dispose();
+    poemMat.dispose();
+    emptyGeo.dispose();
     rt.dispose();
   }
 

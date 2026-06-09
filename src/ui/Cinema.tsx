@@ -29,13 +29,11 @@ export function Cinema() {
   let index: string | null = null;
   let digits = 0;
   let attribution = "";
-  let isFree = false;
   if (selected) {
     lines = selected.lines;
     index = selected.babelIndex;
     digits = selected.babelDigits;
     attribution = "诗云 · 从虚空里捞起";
-    isFree = selected.form === "ziyou";
   } else if (poet && poems && focus && focus.poemIdx >= 0 && poems[focus.poemIdx]) {
     const pm = poems[focus.poemIdx];
     const a = anyTextIndex(pm.p);
@@ -43,7 +41,6 @@ export function Cinema() {
     index = a?.index ?? null;
     digits = a?.digits ?? 0;
     attribution = `${poet.name}《${pm.t || "无题"}》`;
-    isFree = pm.f === "other";
   }
   const n = TAGLINES.length;
   const tag = TAGLINES[((copyIdx % n) + n) % n];
@@ -60,9 +57,11 @@ export function Cinema() {
 
       {lines && (
         <div className="cinema-card">
+          {/* classical 竖排: each line is a column, columns flow RIGHT→LEFT (writing-mode in CSS) so a
+              long poem spreads sideways instead of getting clipped at the bottom. */}
           <div className="cinema-poem" lang="zh">
             {lines.map((l, i) => (
-              <div key={i} className={isFree ? "poem-line wrap" : "poem-line"}>{l}</div>
+              <div key={i} className="cinema-line">{l}</div>
             ))}
           </div>
           <div className="cinema-attr">{attribution}</div>
@@ -76,7 +75,7 @@ export function Cinema() {
       )}
 
       <div className="cinema-brand">诗云 · Poetry Cloud</div>
-      <button className="cinema-exit" onClick={close}>📸 截好图 · 点此退出</button>
+      <button className="cinema-exit" onClick={close} title="退出奇迹时刻">截好图 · 退出 ✕</button>
     </div>
   );
 }

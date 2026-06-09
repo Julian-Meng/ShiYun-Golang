@@ -1785,21 +1785,33 @@ canvas {
 .cinema-card {
   position: absolute;
   left: 50%;
-  bottom: calc(78px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(560px, 86vw);
-  max-height: 50vh;
-  overflow: hidden;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
   text-align: center;
   pointer-events: none;
 }
+/* classical 竖排: each line is an upright column; columns flow right→left (so a long poem spreads
+   sideways and is never clipped at the bottom — fixes the truncation of long poems). */
 .cinema-poem {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  max-height: 58vh;
+  max-width: 88vw;
+  overflow: hidden;
   font-family: var(--serif);
-  font-size: clamp(20px, 3.4vw, 30px);
-  line-height: 1.95;
-  letter-spacing: 0.16em;
+  font-size: clamp(19px, 3.6vh, 30px);
+  letter-spacing: 0.18em;
   color: #f6f2e6;
   text-shadow: 0 2px 22px rgba(0, 0, 0, 0.95), 0 0 30px rgba(255, 210, 122, 0.15);
+}
+.cinema-line {
+  padding: 0 0.4em; /* horizontal gap between the upright columns */
+  white-space: nowrap; /* one line = one column (never wraps into a second column) */
 }
 .cinema-attr {
   margin-top: 12px;
@@ -1836,23 +1848,24 @@ canvas {
   color: var(--gold);
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
 }
+/* exit: tucked into the TOP-LEFT corner (out of the shot's composition) but RED so it's easy to find */
 .cinema-exit {
   position: absolute;
-  bottom: calc(8px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(10px + env(safe-area-inset-top));
+  left: calc(10px + env(safe-area-inset-left));
   pointer-events: auto;
-  background: rgba(8, 10, 18, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 9px;
-  color: var(--fg);
+  background: rgba(22, 4, 6, 0.55);
+  border: 1px solid rgba(255, 84, 84, 0.65);
+  border-radius: 8px;
+  color: #ff6b6b;
   font-size: 12px;
-  padding: 7px 16px;
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
   cursor: pointer;
 }
 .cinema-exit:hover {
-  color: var(--gold);
-  border-color: rgba(255, 210, 122, 0.5);
+  background: rgba(255, 84, 84, 0.18);
+  color: #ff9a9a;
 }
 /* 📷 奇迹时刻 entry button (poem / poet panels) */
 .cinema-btn {
@@ -1868,4 +1881,161 @@ canvas {
 }
 .cinema-btn:hover {
   background: rgba(255, 210, 122, 0.22);
+}
+
+/* ── 关于 / 链接 + 页内反馈 (更多 菜单底部) ── */
+.set-links {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.set-link {
+  flex: 1;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  color: var(--fg);
+  font-size: 12px;
+  padding: 6px 8px;
+  text-decoration: none;
+}
+.set-link:hover {
+  border-color: rgba(255, 210, 122, 0.5);
+  color: var(--gold);
+}
+.set-feedback-open {
+  width: 100%;
+  background: rgba(255, 210, 122, 0.1);
+  border: 1px solid rgba(255, 210, 122, 0.34);
+  border-radius: 7px;
+  color: var(--gold);
+  font-size: 12px;
+  padding: 7px;
+  cursor: pointer;
+}
+.set-feedback-open:hover {
+  background: rgba(255, 210, 122, 0.18);
+}
+.set-feedback-input {
+  width: 100%;
+  background: rgba(8, 10, 18, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--fg);
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+}
+.set-feedback-input:focus {
+  border-color: rgba(255, 210, 122, 0.5);
+}
+.set-feedback-act {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.set-feedback-cancel {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.set-feedback-send {
+  flex: 1;
+  background: linear-gradient(180deg, rgba(255, 210, 122, 0.9), rgba(245, 200, 110, 0.8));
+  border: none;
+  border-radius: 7px;
+  color: #1a1206;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.set-feedback-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.set-feedback-ok {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--gold);
+  text-align: center;
+}
+
+/* ── owner-only feedback inbox (hidden 5-tap gesture) ── */
+.fbv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 3, 8, 0.6);
+  backdrop-filter: blur(4px);
+}
+.fbv-card {
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  max-height: 80dvh;
+  overflow: auto;
+  background: linear-gradient(180deg, rgba(16, 18, 28, 0.97), rgba(8, 9, 16, 0.96));
+  border: 1px solid rgba(255, 210, 122, 0.22);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.6);
+}
+.fbv-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--gold);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+.fbv-empty {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 14px 2px;
+}
+.fbv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fbv-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 8px;
+}
+.fbv-time {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.fbv-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.fbv-clear {
+  margin-top: 12px;
+  background: none;
+  border: 1px solid rgba(255, 120, 120, 0.4);
+  border-radius: 7px;
+  color: #ff9a9a;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.fbv-clear:hover {
+  background: rgba(255, 120, 120, 0.12);
 }

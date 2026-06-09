@@ -51,6 +51,8 @@ interface State {
   // show a framed share card over the still scene to guide a clean screenshot. cinemaCopy = which tagline.
   cinema: boolean;
   cinemaCopy: number;
+  // owner-only feedback viewer (opened by a hidden gesture: 5 taps on the 诗云 logo within 10 s)
+  feedbackOpen: boolean;
   // 赠诗漫游 (gift-network roaming): a breadcrumb of poets you've HOPPED through along 赠诗 edges.
   // trail[last] = the current poet; consecutive nodes are drawn as persistent "return lines" (GiftTrail).
   // Capped at 11 nodes (= 10 return edges). Reset to [poet] on a NORMAL selectPoet (= 点无关诗人清除);
@@ -105,6 +107,7 @@ interface State {
   toggleUI: () => void;
   toggleCinema: () => void;
   setCinemaCopy: (n: number) => void;
+  setFeedbackOpen: (b: boolean) => void;
   setSpeed: (s: number) => void;
   setFlyTarget: (t: [number, number, number] | null) => void;
   lockPoet: (id: string) => void;
@@ -148,6 +151,7 @@ export const useStore = create<State>((set) => ({
   uiHidden: false,
   cinema: false,
   cinemaCopy: 0,
+  feedbackOpen: false,
   gravity: true,
   speed: 1,
   flyTarget: null,
@@ -215,6 +219,7 @@ export const useStore = create<State>((set) => ({
   toggleUI: () => set((s) => ({ uiHidden: !s.uiHidden })),
   toggleCinema: () => set((s) => ({ cinema: !s.cinema })),
   setCinemaCopy: (cinemaCopy) => set({ cinemaCopy }),
+  setFeedbackOpen: (feedbackOpen) => set({ feedbackOpen }),
   setSpeed: (speed) => set({ speed }),
   setFlyTarget: (flyTarget) => set({ flyTarget }),
   lockPoet: (id) => set({ lockPoetId: id, lockPoemIdx: null }),

@@ -1,6 +1,50 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../state/store";
 import { COARSE, WEAK } from "../three/detectQuality";
+import { submitFeedback } from "../state/feedback";
+
+// in-page feedback box (collapsed → a single button; expanded → a textarea). Stored locally; the owner
+// reads it via the hidden 5-tap-on-logo gesture (FeedbackViewer). See state/feedback.ts.
+function FeedbackBox() {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [sent, setSent] = useState(false);
+  if (!open) {
+    return (
+      <button className="set-feedback-open" onClick={() => setOpen(true)}>💬 反馈 · 提个建议或报个 bug</button>
+    );
+  }
+  return (
+    <div className="set-feedback">
+      <textarea
+        className="set-feedback-input"
+        placeholder="有什么想法、发现的问题或建议?写在这里…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+        maxLength={2000}
+        spellCheck={false}
+      />
+      <div className="set-feedback-act">
+        <button className="set-feedback-cancel" onClick={() => { setOpen(false); setText(""); setSent(false); }}>收起</button>
+        <button
+          className="set-feedback-send"
+          disabled={!text.trim()}
+          onClick={() => {
+            if (submitFeedback(text)) {
+              setText("");
+              setSent(true);
+              setTimeout(() => setSent(false), 2200);
+            }
+          }}
+        >
+          {sent ? "已提交 ✓ 谢谢" : "提交反馈"}
+        </button>
+      </div>
+      {sent && <div className="set-feedback-ok">收到啦 —— 感谢你的反馈 🌟</div>}
+    </div>
+  );
+}
 
 // 诗云设置 menu — collects the 指引 / 行星 / 赠诗 / 引力 controls (moved out of the HUD top bar). Opened by
 // the HUD ⚙设置 button. 赠诗漫游 stays a separate panel (it only shows when 赠诗 is on). 恢复默认 = the
@@ -74,7 +118,7 @@ export function SettingsMenu() {
           dragRef.current = { ox: e.clientX - pos.x, oy: e.clientY - pos.y };
         }}
       >
-        <span>诗云设置 ⠿</span>
+        <span>更多 ⠿</span>
         <button className="set-close" onClick={toggleSettings} title="关闭">×</button>
       </div>
 
@@ -150,6 +194,16 @@ export function SettingsMenu() {
       </div>
 
       <button className="set-reset wide" onClick={resetAll} disabled={allDefault}>全部恢复默认</button>
+
+      {/* 关于 + 页内反馈 (at the very bottom of 更多) */}
+      <div className="set-group">
+        <div className="set-label">关于 · 反馈</div>
+        <div className="set-links">
+          <a className="set-link" href="https://cohenjikan.com" target="_blank" rel="noopener noreferrer">个人主页 ↗</a>
+          <a className="set-link" href="https://github.com/Cohenjikan" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        </div>
+        <FeedbackBox />
+      </div>
     </div>
   );
 }

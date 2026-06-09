@@ -10,6 +10,27 @@ real GPU. Data dirs (`poems/`, `lines/`) are git-ignored — see HANDOFF "data p
 
 ---
 
+## 2026-06-09 — Session: 7th agent · round 3 (UI polish — 竖排分享卡 + 设置→更多 + 个人链接 + 页内反馈)
+
+Mostly UI, per the user's screenshots. Verify gate green: tsc + vite build + **89 tests**.
+
+- **奇迹时刻 → classical 竖排** (`ui/Cinema.tsx` + CSS): the share card poem was clipping long poems and the
+  copy ran together. The poem now renders **vertical, right-to-left, one column per line**
+  (`writing-mode: vertical-rl; text-orientation: upright`; `.cinema-line { white-space: nowrap }`) so a long
+  poem spreads sideways instead of being truncated at the bottom; the card is centred like a hanging scroll.
+  The exit button moved to the **top-left corner in red** (`截好图 · 退出 ✕`) — out of the shot but easy to find.
+- **设置 → 更多** (`ui/HUD.tsx`, `ui/SettingsMenu.tsx`): the HUD button + the panel title are renamed 更多
+  (it now also holds 关于/反馈, so 设置 was too narrow).
+- **关于 + 个人链接** (`SettingsMenu`): at the bottom of 更多 — 个人主页 `cohenjikan.com` + `GitHub` (Cohenjikan).
+- **页内反馈** (`state/feedback.ts` NEW, `SettingsMenu` FeedbackBox, `ui/FeedbackViewer.tsx` NEW): a 反馈
+  box in 更多 stores messages in **localStorage** (capped 5000 汉字, oldest drop first). The OWNER reads them
+  via a hidden gesture — **5 taps on the 诗云 logo within 10 s** → `store.feedbackOpen` → a FeedbackViewer
+  overlay listing each message + timestamp (+ 清空). ⚠ **localStorage is per-device**: the owner only sees
+  feedback typed on the same browser. A cross-visitor inbox needs a serverless form (Formspree / Google
+  Forms / a Cloudflare Worker) — `submitFeedback` is the single seam to repoint; wire it at DEPLOY if wanted.
+
+---
+
 ## 2026-06-09 — Session: 7th agent · round 2 (奇迹时刻 share card + 手机面板默认折叠 + 寻路修复/增强)
 
 Follow-ups on the same worktree after the user tested on a real phone. Verify gate green: tsc + vite build

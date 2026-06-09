@@ -20,6 +20,7 @@ export function HUD() {
   const toggleLushi = useStore((s) => s.toggleLushi);
   const settingsOpen = useStore((s) => s.settingsOpen);
   const toggleSettings = useStore((s) => s.toggleSettings);
+  const setFeedbackOpen = useStore((s) => s.setFeedbackOpen);
   const quality = useStore((s) => s.quality);
   const toggleQuality = useStore((s) => s.toggleQuality);
   const toggleUI = useStore((s) => s.toggleUI);
@@ -31,6 +32,19 @@ export function HUD() {
   // can sit just below it (styles.css) instead of guessing a fixed top — robust to wrap count / notch /
   // font size / orientation. Desktop ignores --hud-h (the search keeps its fixed top there).
   const topRef = useRef<HTMLDivElement>(null);
+
+  // hidden owner gesture: 5 taps on the 诗云 logo within 10 s → open the feedback viewer (see FeedbackViewer)
+  const taps = useRef<number[]>([]);
+  const onLogoTap = () => {
+    const now = Date.now();
+    taps.current = taps.current.filter((t) => now - t < 10000);
+    taps.current.push(now);
+    if (taps.current.length >= 5) {
+      taps.current = [];
+      setFeedbackOpen(true);
+    }
+  };
+
   useLayoutEffect(() => {
     const el = topRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -44,7 +58,7 @@ export function HUD() {
   return (
     <>
       <div className="hud-top" ref={topRef}>
-        <div className="title">
+        <div className="title" onClick={onLogoTap} style={{ cursor: "pointer" }}>
           诗云 <span className="title-en">Poetry Cloud</span>
         </div>
         <div className="seg" title="点击虚空时生成的诗体">
@@ -78,9 +92,9 @@ export function HUD() {
         <button
           className={settingsOpen ? "filter on" : "filter"}
           onClick={toggleSettings}
-          title="设置：指引 / 行星 / 赠诗 / 引力"
+          title="更多：指引 / 行星 / 赠诗 / 引力 / 关于 / 反馈"
         >
-          ⚙ 设置
+          ⚙ 更多
         </button>
         <button
           className="filter"

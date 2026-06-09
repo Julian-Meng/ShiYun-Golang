@@ -18,6 +18,7 @@ import { SettingsMenu } from "./ui/SettingsMenu";
 import { PoemHoverLabel } from "./ui/PoemHoverLabel";
 import { Onboarding } from "./ui/Onboarding";
 import { Cinema } from "./ui/Cinema";
+import { FeedbackViewer } from "./ui/FeedbackViewer";
 import { useStore } from "./state/store";
 import { applyHash, syncHash } from "./state/permalink";
 import { loadData } from "./data/load";
@@ -114,6 +115,9 @@ export default function App() {
 
       {/* 奇迹时刻: framed share card over the frozen scene (hides the normal UI; keeps camera composable) */}
       {cinema && <Cinema />}
+
+      {/* owner-only feedback inbox (opened by the hidden 5-tap-on-logo gesture); self-gates on the store */}
+      <FeedbackViewer />
 
       {loaded && <Onboarding />}
 

@@ -108,7 +108,8 @@ thing that breaks the hosting model; all index math + render is client-side).
 | **自适应画质 / 性能** (7th) | `three/detectQuality.ts` (`COARSE`/`WEAK`, evaluated once at load): weak/touch devices default `画质·低` + cap `dpr` to 1.5 + bloom off, and the ~857k-point `行星·全部` layer is gated off (manual 画质 toggle still forces 高). |
 | **响应式布局** (7th) | One `@media(max-width:600px)`: transient panels → 全宽 bottom-sheets; 搜索 stays top tracking a live `--hud-h` (ResizeObserver); HUD wraps/trims; 16px inputs (no iOS zoom-on-focus); `dvh` + `env(safe-area-inset-*)`; ≥40px tap targets on coarse pointers. |
 | **手机面板折叠** (7th) | On touch, 诗人/虚空诗 panels + 搜索 default to a bottom **peek bar** (一行摘要 + 「▲ 展开」); tap to open, 「▾ 收起」 back. Re-collapses per new selection. Never auto-covers the galaxy. `ui/useSheet.ts` + `.sheet-peek`. Desktop unchanged. |
-| **奇迹时刻 / 分享卡** (7th) | 📷 button (诗/诗人面板) → a framed share card over the **FROZEN** scene (spin + void-pull + highlight lifecycles paused; manual camera still composable) with a cyclable concept tagline + the poem + its 全集编号, to guide a screenshot. `ui/Cinema.tsx`, `store.cinema`. |
+| **奇迹时刻 / 分享卡** (7th) | 📷 button (诗/诗人面板) → a framed share card over the **FROZEN** scene (spin + void-pull + highlight lifecycles paused; manual camera still composable) with a cyclable concept tagline (5) + the poem rendered **竖排 right-to-left, one column per line** (`writing-mode: vertical-rl` — long poems never clip) + its 全集编号; exit is a **red top-left** button. `ui/Cinema.tsx`, `store.cinema`. |
+| **更多 菜单 + 关于/反馈** (7th) | HUD 设置→**更多** (`ui/SettingsMenu.tsx`): + 个人主页 `cohenjikan.com` / `GitHub` links + an in-page **反馈** box (localStorage, ≤5000 汉字). Owner reads via a hidden gesture — **5 taps on the 诗云 logo in 10 s** → `ui/FeedbackViewer.tsx`. ⚠ localStorage = per-device; `state/feedback.ts::submitFeedback` is the seam to repoint at a form service for cross-visitor collection at deploy. |
 
 Three pull modes to feel the project: plain random「牛蝛茙漂綵」→ 格律「趰㵎憣烔岆」→ 格律+常用字
 「思伦要锁馆」; plus 自由格式 for 词-like变行, and the 诗句 tab to find a real poem from one line.
@@ -249,6 +250,9 @@ npm run build:fuzzy                                       # linesf/ — 异文 f
   高频名篇), OR ship `linesf/` brotli'd behind a flag. `lines/` 791 MB + `search/` 129 MB + `poems/` 235 MB also need a
   host plan (object storage / CDN — `loadData(base)` + the `load.ts` fetch helpers are already `base`-parameterized,
   but add a `VITE_DATA_BASE` knob so it's one place; watch CORS + that the host honours **Range** on raw `poems/*.json`).
+- **Feedback inbox (optional)** — the in-page 反馈 (更多 menu) stores to localStorage = per-device only. If you
+  want to actually RECEIVE visitor feedback after deploy, repoint `state/feedback.ts::submitFeedback` at a
+  serverless form (Formspree / Google Forms / a Cloudflare Worker) — the only seam to change. Static-friendly.
 - **Deploy** — `npm run deploy:build` kit is ready (brotli + Range on `poems/*.json` kept RAW); pick a host that honours
   byte ranges (nginx/Caddy/Cloudflare Pages+R2 over GH-Pages/Netlify). Decide the fuzzy strategy first.
 

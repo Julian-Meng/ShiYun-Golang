@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "precompress": "node deploy/precompress.mjs",
+    "build:sidecars": "node pipeline/build-sidecars.mjs",
     "deploy:build": "npm run build && npm run precompress"
   },
   "dependencies": {

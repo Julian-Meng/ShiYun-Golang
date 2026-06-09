@@ -145,13 +145,14 @@ node pipeline/build-lexicon.mjs                            # lexicon.json (needs
 - ✅ **Fixed dev port** — `vite.config` `server.port:5199 strictPort` so a sibling worktree's stale server can't silently
   shadow the preview (`.claude/launch.json` already has shiyun-gpupick on 5199).
 
-### ⚠ KNOWN ISSUE surfaced this round — Range egress is DORMANT (fix next)
-`manifest.poemSidecar:true` but `public/data/poems/*.idx.json` sidecars are **ABSENT** in the committed/regenerated data
-(verified: `/data/poems/00.idx.json` → index.html fallback, not JSON). So `loadPoetPoems` falls through to a whole-bucket
-(~0.9 MB) fetch on **every** poet click, NOT a few-KB Range slice. The #12 "egress already optimized" claim is therefore
-dormant code until the sidecars exist. Fix: rebuild data emitting them (`build-data.mjs` already does), OR a standalone
-`pipeline/build-sidecars.mjs` that re-emits each `poems/{bucket}.json` canonically + its byte-offset sidecar (no corpus
-needed). Matters for deploy egress AND is the prerequisite for the orbiting-poems "cheap per-poet" claim.
+### ✅ FIXED this round — Range egress was DORMANT, now LIVE
+`manifest.poemSidecar:true` but `public/data/poems/*.idx.json` sidecars were **ABSENT** (the committed data predated the
+sidecar pass), so `loadPoetPoems` fell through to a whole-bucket (~0.9 MB) fetch on **every** poet click. **Fix:**
+`pipeline/build-sidecars.mjs` (`npm run build:sidecars`) re-emits each `poems/{bucket}.json` canonically + its byte-offset
+sidecar in one pass (same logic as `build-data.mjs::writeBucket`; no corpus needed, ~seconds). Verified live on 5199:
+`/data/poems/00.idx.json` is JSON; a poet Range-fetch → `206 content-range: bytes 12-9787/890706` (9.7 KB of 890 KB,
+≈98.9% egress saved), slice parses to that poet's poems. Sidecars are git-ignored data, so **re-run `npm run build:sidecars`
+on any fresh worktree** (or it falls back to whole-bucket). This is the prerequisite for the orbiting-poems "cheap per-poet" path.
 
 **DONE — UX iteration round 4 (verified: build + 57/57 + e2e DOM, GPU-pick after a clean restart):**
 - ✅ **造诗 grid input fixed (was the big bug)** — the fixed-form grid was per-cell `<input maxLength=2>`

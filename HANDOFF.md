@@ -87,6 +87,7 @@ Three pull modes to feel the project: plain random「牛蝛茙漂綵」→ 格�
 - [docs/DATA_CONTRACT.md](docs/DATA_CONTRACT.md) — static-asset schemas, corpus, dynasty taxonomy + normalization map.
 - [docs/FRONTEND_GUIDE.md](docs/FRONTEND_GUIDE.md) — **rebuild contract**: the 4 stable interfaces a new frontend uses (load.ts / engineApi / poetPosition / store), interaction model, locked direction notes.
 - [docs/PIPELINE.md](docs/PIPELINE.md) — how the data + lexicon are built.
+- [docs/DEVLOG.md](docs/DEVLOG.md) — running development diary (newest first): per-round commits + what changed + verify.
 - [docs/DEPLOY.md](docs/DEPLOY.md) — static deploy (nginx + brotli + the poems/ Range gotcha).
 
 `src/data/contract.ts` is the typed source-of-truth for every data asset.
@@ -160,13 +161,30 @@ node pipeline/build-lexicon.mjs                            # lexicon.json (needs
   poet/poem id split have 5 new vitest cases (**62 total**). *(GPU pick can't run on the headless preview — the whole r3f
   Canvas subtree is dormant on swiftshader; verify CLICKING a planet on a real GPU.)*
 
-### ⏭ Next round (user-requested visual polish — proposal then build)
-- **行星 ON looks "区块化" (blocky)** — each poet's flat x/z disc reads as a rectangular smear (esp. edge-on), so the
-  whole sky looks like colour blocks, not a star field. Likely fixes to weigh: (a) make each poem cloud 3D / spherical
-  with a soft gaussian radial falloff (no hard disc edge) so systems blend; (b) random per-poet orbital-plane tilt so
-  discs don't all align to the galaxy plane; (c) larger + sparser systems that dissolve into the field; (d) smaller
-  per-point size + lower additive brightness so blocks don't saturate. Tune on a real GPU. `positions.poemOffset` +
-  `PoemOrbits.planetMaterial`.
+**DONE — round 7 (latest; verified build + 62/62; visual/interaction need a real-GPU pass — no preview):**
+- ✅ **Bigger, irregular, SELF-ROTATING clusters** (round-6 was too small/local/uniform/blocky) — `poemSystemRadius`
+  ~6× (35+13√P; 杜甫→~555); `poemOffset` = clumpy power-law radius + WIDE jitter + per-poet **ELLIPSOID axes**
+  (sphere/ellipse/oblate). Each cloud SELF-ROTATES around its poet (`poemOmega` + shared `poemClock`), mirrored in the
+  visual shader, the GPU pick shader (clicks still land), and the time-aware `poemPosition` (locate/flare track it).
+- ✅ **10-second highlight regardless of 行星 toggle (item 1)** — selecting a poet ALWAYS flashes its whole cluster in
+  (flash→hold→fade ≈10 s) even in 行星-ON mode; selected poet star also ×1.8. (`PoemOrbits` timed highlight layers.)
+- ✅ **Camera lock-follow (item 3)** — `store.lockPoetId/lockPoemIdx`; selecting a poet (or planet) centres + follows it
+  (time-aware target → tracks galaxy spin + planet orbit; decoration's faster `DECOR_RATE` streams past = motion sense).
+  Released by any movement key or a look-drag. Wired from 3D click / 诗人 / 诗句 / 目录. (`FlyControls` useFrame lock block.)
+- ✅ **findReal fuzzy (item 4, cheap half)** — same-length ≤2-char (≥85%) near-match → the popular 静夜思「举头望明月」
+  (corpus「山月」) is now flagged as 异文. `SearchPanel.nearMatch`.
+- **Real-GPU knobs**: `positions.poemSystemRadius` / `poemOffset` (ellipsoid+jitter+power) / `poemOmega` (spin rate);
+  `PoemOrbits` highlight `makeLayer(bright/sizeScale/maxPx)` + `HOLD`/`FADE_*`; `FlyControls` lock `dist`/`k`.
+
+### ⏭ Next — mobile + productization (user's next phase)
+- **诗句 mid-line variant search** — the cheap `findReal` fuzzy is done; searching ONLY a variant LINE (「举头望明月」
+  alone) still misses (the index is keyed by the EXACT line). Build a FUZZY LINE INDEX in `build-lines.mjs`: per line
+  emit a "skeleton" key (drop-1-char positions and/or a sorted-char signature) so a 1-char-diff query hits. Data cost —
+  fold into this phase.
+- **Mobile / touch** — `FlyControls` is mouse+keyboard only → single-finger drag-look, two-finger pinch/push, tap-pick.
+  Auto `画质·低` + disable bloom + cap/disable 行星-ON on mobile (devicePixelRatio / GPU sniff). Responsive panels
+  (bottom-sheet on narrow screens). First-paint already ≤1.3 MB.
+- **Deploy** — `npm run deploy:build` kit is ready (brotli + Range on `poems/*.json`); ship to a static host.
 
 **DONE — UX iteration round 5 (verified: build + 57/57 + DOM mount; centre confirmed 够散/漂亮 by the user on a real GPU):**
 - ✅ **造诗 placeholder simplified** — the long hint clipped in the 320px panel; placeholder is now 「粘贴整首诗…」 and the

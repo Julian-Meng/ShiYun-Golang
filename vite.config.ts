@@ -25,11 +25,20 @@ export default defineConfig(({ mode }) => {
       // three.js is irreducibly ~680 KB min (176 KB gz) and the app IS the canvas — code-splitting
       // it out of the critical path buys nothing. Raise the advisory limit instead of warning forever.
       chunkSizeWarningLimit: 700,
-      rollupOptions: {
+      // Vite 8 swapped Rollup for Rolldown, which dropped the object form of
+      // rollupOptions.output.manualChunks AND would merge a manual chunk into its sole importer — a
+      // plain three+r3f `manualChunks` function collapsed both into one ~950 KB chunk, tripping the
+      // 700 KB warning above. Rolldown's native codeSplitting.groups (the rollupOptions successor)
+      // restores the Vite 5 split: three.js → its own ~680 KB chunk (under the limit), fiber+drei → a
+      // shared r3f chunk. The higher `priority` on `three` makes Rolldown materialise it as its OWN
+      // chunk first (claiming three's modules before the sole-importer merge pass), so it stays split.
+      rolldownOptions: {
         output: {
-          manualChunks: {
-            three: ["three"],
-            r3f: ["@react-three/fiber", "@react-three/drei"],
+          codeSplitting: {
+            groups: [
+              { name: "three", test: /[\\/]node_modules[\\/]three[\\/]/, priority: 2 },
+              { name: "r3f", test: /[\\/]node_modules[\\/]@react-three[\\/](fiber|drei)[\\/]/, priority: 1 },
+            ],
           },
         },
       },

@@ -128,6 +128,11 @@ const GUIDE_MODES = [
   ["hold", "常驻"],
 ] as const;
 
+const GUIDE_STYLES = [
+  ["plane", "平面坐标"],
+  ["line", "直线(旧版)"],
+] as const;
+
 export function SettingsMenu() {
   const open = useStore((s) => s.settingsOpen);
   const toggleSettings = useStore((s) => s.toggleSettings);
@@ -139,6 +144,8 @@ export function SettingsMenu() {
   const setGuideSeconds = useStore((s) => s.setGuideSeconds);
   const guideBrightness = useStore((s) => s.guideBrightness);
   const setGuideBrightness = useStore((s) => s.setGuideBrightness);
+  const guideStyle = useStore((s) => s.guideStyle);
+  const setGuideStyle = useStore((s) => s.setGuideStyle);
   const resetGuide = useStore((s) => s.resetGuide);
   const showAllPoems = useStore((s) => s.showAllPoems);
   const toggleAllPoems = useStore((s) => s.toggleAllPoems);
@@ -175,7 +182,7 @@ export function SettingsMenu() {
 
   if (!open) return null;
 
-  const guideDefault = guideMode === "flash" && guideCoverage === "optimized" && guideSeconds === 10 && guideBrightness === 0.7;
+  const guideDefault = guideMode === "flash" && guideCoverage === "optimized" && guideSeconds === 10 && guideBrightness === 0.7 && guideStyle === "plane";
   const allDefault = guideDefault && !showAllPoems && !showGifts && gravity;
   const resetAll = () => {
     resetGuide();
@@ -204,6 +211,20 @@ export function SettingsMenu() {
           <div className="seg">
             {GUIDE_MODES.map(([m, l]) => (
               <button key={m} className={guideMode === m ? "seg-btn on" : "seg-btn"} onClick={() => setGuideMode(m)}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div className="set-row">
+          <span className="set-sub">样式</span>
+          <div className="seg">
+            {GUIDE_STYLES.map(([s, l]) => (
+              <button
+                key={s}
+                className={guideStyle === s ? "seg-btn on" : "seg-btn"}
+                onClick={() => setGuideStyle(s)}
+                disabled={guideMode === "off"}
+                title={s === "plane" ? "平面坐标式:两段折线(平面段+垂直段)+ 赤道参考环,更易读" : "直线·旧版:从诗人直射每首诗的光束"}
+              >{l}</button>
             ))}
           </div>
         </div>

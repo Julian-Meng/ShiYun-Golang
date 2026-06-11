@@ -41,6 +41,8 @@ interface State {
   guideCoverage: "all" | "optimized";
   guideSeconds: number;
   guideBrightness: number; // 指引线亮度倍率 (default lower; adjustable 0.2..2.0)
+  // 指引线样式: plane(平面坐标式 — 散射→直射两段折线 + 赤道参考环, 默认) / line(直线·旧版 — 赠诗式直射光束)
+  guideStyle: "plane" | "line";
   // 诗云设置菜单 (收容 指引 / 行星 / 赠诗 / 引力) open
   settingsOpen: boolean;
   // poem "planets": when ON, every poet shows ALL their poems as orbiting planets (高性能);
@@ -110,6 +112,7 @@ interface State {
   setGuideCoverage: (c: "all" | "optimized") => void;
   setGuideSeconds: (n: number) => void;
   setGuideBrightness: (n: number) => void;
+  setGuideStyle: (s: "plane" | "line") => void;
   resetGuide: () => void;
   toggleSettings: () => void;
   togglePathDimEgo: () => void;
@@ -155,6 +158,7 @@ export const useStore = create<State>((set) => ({
   guideCoverage: "optimized",
   guideSeconds: 10,
   guideBrightness: 0.7,
+  guideStyle: "plane",
   settingsOpen: false,
   giftTrail: [],
   pathStart: null,
@@ -231,7 +235,8 @@ export const useStore = create<State>((set) => ({
   setGuideCoverage: (guideCoverage) => set({ guideCoverage }),
   setGuideSeconds: (guideSeconds) => set({ guideSeconds }),
   setGuideBrightness: (guideBrightness) => set({ guideBrightness }),
-  resetGuide: () => set({ guideMode: "flash", guideCoverage: "optimized", guideSeconds: 10, guideBrightness: 0.7 }),
+  setGuideStyle: (guideStyle) => set({ guideStyle }),
+  resetGuide: () => set({ guideMode: "flash", guideCoverage: "optimized", guideSeconds: 10, guideBrightness: 0.7, guideStyle: "plane" }),
   toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
   togglePathDimEgo: () => set((s) => ({ pathDimEgo: !s.pathDimEgo })),
   setGiftHover: (giftHoverId) => set((s) => (s.giftHoverId === giftHoverId ? {} : { giftHoverId })),

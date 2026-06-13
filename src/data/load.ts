@@ -303,12 +303,82 @@ export interface LineHit {
   form: string;
   firstLine: string;
   poet?: PoetRow;
+  /** Plan C: how many DISTINCT typed lines this poem matched — set only for multi-line (整联) queries
+   *  (undefined ⇒ 0 in ranking, so single-line / incremental search is left exactly as before). */
+  lineMatches?: number;
 }
+
+/** Split a raw query into candidate LINES — maximal runs of 汉字 between punctuation/whitespace. Corpus
+ *  line keys are pure Han, so 「行到水穷处，坐看云起时」 → ["行到水穷处","坐看云起时"]; a single line → one. */
+function splitHanLines(query: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  for (const ch of query) {
+    if (HAN.test(ch)) cur += ch;
+    else if (cur) {
+      out.push(cur);
+      cur = "";
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
 /** Find real poems containing the typed line — EXACT (any line / opening), then a FUZZY 1-edit
  *  fallback (linesf/) so a mid-line variant like 「举头望明月」 still finds 李白《静夜思》 (corpus「山月」). */
 export async function searchByLine(query: string, base = DATA_BASE): Promise<LineHit[]> {
   const cs = [...query].filter((c) => HAN.test(c));
   if (cs.length < 2) return [];
+
+  // ── Plan C — multi-line (整联) re-rank ───────────────────────────────────────────────────────────
+  // If the user typed ≥2 punctuation-separated lines (行到水穷处，坐看云起时), look up EACH line in the
+  // whole-line index and rank a poem by HOW MANY distinct typed lines it holds. Without this, a complete
+  // couplet resolved to whichever sharing poem was more prolific: 《终南别业》(holds both lines) lost to
+  // 《春山》(holds only 行到水穷处) because 王安石 ≫ 王维 by poemCount. Exact whole-line only — the fuzzy /
+  // prefix layers stay on the single-line path below (they power the incremental 单字/半句/异文 search).
+  const segs = [...new Set(splitHanLines(query).filter((l) => [...l].length >= 2))];
+  if (segs.length >= 2) {
+    // Fetch each DISTINCT content-bucket once (two lines can hash to the same bucket), then resolve every
+    // line against its loaded shard — so a couplet whose lines collide doesn't double-fetch lines/ on this
+    // egress-sensitive path. loadFlShard returns the whole bucket, so one fetch serves every line in it.
+    const shards = new Map<string, Record<string, FirstLineRef[]>>();
+    await Promise.all(
+      [...new Set(segs.map(lineBucket))].map(async (b) => void shards.set(b, await loadFlShard(b, base))),
+    );
+    const byPoem = new Map<string, { hit: LineHit; matched: Set<string> }>();
+    for (const key of segs) {
+      for (const r of shards.get(lineBucket(key))?.[key] || []) {
+        const k = r.p + "#" + r.i;
+        let e = byPoem.get(k);
+        if (!e) {
+          e = {
+            hit: { poetId: r.p, poemIdx: r.i, title: r.t, form: r.f, firstLine: key, poet: _byId.get(r.p) },
+            matched: new Set(),
+          };
+          byPoem.set(k, e);
+        }
+        e.matched.add(key);
+        if ([...key].length > [...e.hit.firstLine].length) e.hit.firstLine = key; // longest matched line (code points)
+      }
+    }
+    if (byPoem.size) {
+      const famML = (h: LineHit) => (h.poet && FAMOUS_NAMES.has(h.poet.name) ? 1 : 0);
+      const ranked: LineHit[] = [];
+      for (const { hit, matched } of byPoem.values()) {
+        hit.lineMatches = matched.size;
+        ranked.push(hit);
+      }
+      ranked.sort(
+        (a, b) =>
+          (b.lineMatches || 0) - (a.lineMatches || 0) ||
+          famML(b) - famML(a) ||
+          (b.poet?.poemCount || 0) - (a.poet?.poemCount || 0),
+      );
+      return ranked.slice(0, 30);
+    }
+    // none of the typed lines hit the exact index → fall through to the single-line heuristic below.
+  }
+
   const han = cs.join("");
   const seen = new Set<string>();
   const hits: LineHit[] = [];
@@ -414,7 +484,15 @@ export async function searchPoems(query: string, base = DATA_BASE): Promise<Line
     merged.push(h);
   }
   const fam = (h: LineHit) => (h.poet && FAMOUS_NAMES.has(h.poet.name) ? 1 : 0);
-  merged.sort((a, b) => fam(b) - fam(a) || (b.poet?.poemCount || 0) - (a.poet?.poemCount || 0));
+  // Plan C first: a poem matching MORE of the typed lines (整联 query) outranks one matching fewer — ahead
+  // of the famous→poemCount tie-break, else a more prolific poet who shares ONE line wins wrongly. On a
+  // single-line query no hit carries lineMatches → this term is 0 for all and the old order is preserved.
+  merged.sort(
+    (a, b) =>
+      (b.lineMatches || 0) - (a.lineMatches || 0) ||
+      fam(b) - fam(a) ||
+      (b.poet?.poemCount || 0) - (a.poet?.poemCount || 0),
+  );
   const perPoet = new Map<string, number>();
   const out: LineHit[] = [];
   for (const h of merged) {

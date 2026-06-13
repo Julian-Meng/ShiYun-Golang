@@ -257,11 +257,19 @@ async function loadFlShard(bucket: string, base: string): Promise<Record<string,
 // fuzzy (delete-1 skeleton) shards — linesf/{bucket}.json — for mid-line 异文 search (build-fuzzy.mjs).
 // Absent on a worktree that hasn't run `npm run build:fuzzy` → fetch returns {} → fuzzy simply no-ops.
 const _fzShard = new Map<string, Record<string, FirstLineRef[]>>();
+// Session-level "linesf/ is absent" latch. The fuzzy index is sharded by skeleton hash, so ONE user
+// query fans a delete-1 lookup across many DISTINCT buckets — and linesf/ is intentionally not deployed
+// in prod (~4.4 GB), so every one of those is a certain 404. The per-bucket cache above can't collapse
+// them (each bucket is its own miss), so a single session would otherwise emit dozens of guaranteed-404
+// round-trips — the dominant share of prod 404 noise + needless CF origin pulls. Once we've ACTUALLY
+// observed a 404 we know the whole prefix is unserved → latch and stop probing linesf/ for the session.
+// Latched on a real observed 404 only (never hard-coded): the day linesf/ ships, the first request
+// succeeds and the latch never trips, so fuzzy comes back automatically.
+let _linesfUnavailable = false;
 async function loadFzShard(bucket: string, base: string): Promise<Record<string, FirstLineRef[]>> {
+  if (_linesfUnavailable) return {}; // a 404 was already observed this session → don't re-probe linesf/
   const cached = _fzShard.get(bucket);
   if (cached) return cached;
-  // Only cache a SUCCESS or a genuine 404 (linesf/ not built in this dataset → fuzzy no-ops). A
-  // 5xx / network failure returns empty for THIS call but stays uncached so the next call retries.
   try {
     const r = await fetch(`${base}/linesf/${bucket}.json`);
     if (r.ok) {
@@ -269,9 +277,15 @@ async function loadFzShard(bucket: string, base: string): Promise<Record<string,
       _fzShard.set(bucket, obj);
       return obj;
     }
-    if (r.status === 404) _fzShard.set(bucket, {});
+    // A genuine 404 = linesf/ isn't served at all (not built / not deployed): cache this bucket empty AND
+    // latch the session so no further bucket is even attempted. A 5xx / network error is transient — it
+    // returns empty for THIS call but does NOT latch or cache, so the next call still retries.
+    if (r.status === 404) {
+      _fzShard.set(bucket, {});
+      _linesfUnavailable = true;
+    }
   } catch {
-    /* transient — leave cache unset so the next call retries */
+    /* transient — leave the latch off + cache unset so the next call retries */
   }
   return {};
 }
@@ -313,8 +327,10 @@ export async function searchByLine(query: string, base = DATA_BASE): Promise<Lin
   }
   // FUZZY fallback: only when exact found nothing and the input is a plausible single line (len 4..10).
   // Drop each char of the query → skeletons; a 1-substitution corpus line shares the skeleton that
-  // drops the differing position. (No-op if linesf/ wasn't built.)
-  if (hits.length === 0 && cs.length >= 4 && cs.length <= 10) {
+  // drops the differing position. (No-op if linesf/ wasn't built.) Skipped once the session has latched
+  // linesf/ as unavailable — every skeleton would 404, so we don't even compute them (loadFzShard would
+  // no-op anyway; this avoids the wasted skeleton work + keeps the certain-404 traffic at zero).
+  if (hits.length === 0 && cs.length >= 4 && cs.length <= 10 && !_linesfUnavailable) {
     for (const sk of lineSkeletons(cs)) {
       const shard = await loadFzShard(fzBucket(sk), base);
       for (const r of shard[sk] || []) add(r, han);

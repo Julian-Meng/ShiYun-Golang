@@ -731,6 +731,97 @@ canvas {
 .loading-row.error {
   color: #e8a0a0;
 }
+/* 载入作品动画 — gold spinner + shimmer 骨架 + 下载进度条(大诗人切片 2MB+ 首访给出明确反馈) */
+.poems-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 210, 122, 0.18);
+  border-top-color: var(--gold);
+  box-shadow: 0 0 10px rgba(255, 210, 122, 0.25);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.loading-label {
+  color: var(--gold-soft);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+.load-progress {
+  width: 82%;
+}
+.load-track {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.load-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 210, 122, 0.55), var(--gold));
+  box-shadow: 0 0 8px rgba(255, 210, 122, 0.45);
+  transition: width 0.25s ease-out;
+}
+.load-pct {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.poem-skeleton {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.sk-row {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 210, 122, 0.1) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.sk-row:nth-child(2) {
+  width: 88%;
+}
+.sk-row:nth-child(3) {
+  width: 94%;
+}
+.sk-row:nth-child(4) {
+  width: 80%;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+  .sk-row {
+    animation: none;
+  }
+  .load-bar {
+    transition: none;
+  }
+}
 /* 重试 — poem-fetch / boot-data failure recovery */
 .retry-btn {
   margin-left: 10px;

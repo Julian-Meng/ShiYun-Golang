@@ -41,10 +41,44 @@ function LazyCopy({ compute, label }: { compute: () => string | null; label: str
   );
 }
 
+function fmtBytes(n: number): string {
+  return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
+}
+
+// Animated load state for a poet's poems — gold spinner + shimmer skeleton (深色星空美学), plus a REAL
+// download progress bar once Content-Length is known (大诗人首访切片可达 2.6MB → 明确的百分比反馈,不再是
+// 无尽「载入…」). Pure CSS, no deps; honours prefers-reduced-motion.
+function PoemsLoading({ progress }: { progress: { received: number; total: number } | null }) {
+  const total = progress?.total ?? 0;
+  const received = progress?.received ?? 0;
+  const known = total > 0;
+  const pct = known ? Math.min(100, Math.round((received / total) * 100)) : 0;
+  return (
+    <div className="loading-row poems-loading">
+      <div className="spinner" aria-hidden="true" />
+      <div className="loading-label">载入作品…</div>
+      {known && (
+        <div className="load-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+          <div className="load-track">
+            <div className="load-bar" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="load-pct">{pct}% · {fmtBytes(received)} / {fmtBytes(total)}</div>
+        </div>
+      )}
+      <div className="poem-skeleton" aria-hidden="true">
+        {[0, 1, 2, 3].map((k) => (
+          <div className="sk-row" key={k} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function PoetPanel() {
   const poet = useStore((s) => s.selectedPoet);
   const poems = useStore((s) => s.poetPoems);
   const poemsError = useStore((s) => s.poetPoemsError);
+  const progress = useStore((s) => s.poetPoemsProgress);
   const focus = useStore((s) => s.poetFocus);
   const close = useStore((s) => s.clearPoet);
   const pulseAt = useStore((s) => s.pulseAt);
@@ -138,7 +172,7 @@ export function PoetPanel() {
           <button className="retry-btn" onClick={() => fetchPoetPoems(poet.id)}>重试</button>
         </div>
       ) : poems === null ? (
-        <div className="loading-row">载入作品…</div>
+        <PoemsLoading progress={progress && progress.id === poet.id ? progress : null} />
       ) : (
         <div className="poem-list">
           {order.slice(0, shown).map((i) => {

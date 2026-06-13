@@ -138,11 +138,51 @@ async function loadBucketWhole(bucket: string, base: string): Promise<Record<str
   return obj;
 }
 
+/** Read a Response body to a UTF-8 string while reporting download progress (received/total bytes).
+ *  `total` = Content-Length; for a 206 that's the SLICE size — exactly the per-poet download worth a
+ *  progress bar (大诗人切片可达 2.6MB,poems/ 不压缩、首访回源). ALL bytes are buffered then decoded ONCE,
+ *  so a multi-byte UTF-8 char split across chunk boundaries is never corrupted. Falls back to res.text()
+ *  when the body isn't a readable stream (older runtimes / test stubs). */
+export async function readWithProgress(
+  res: Response,
+  onProgress?: (received: number, total: number) => void,
+): Promise<string> {
+  const total = Number(res.headers.get("Content-Length")) || 0;
+  const reader = res.body?.getReader?.();
+  if (!reader) {
+    const txt = await res.text();
+    onProgress?.(total, total); // no incremental stream available → report completion only
+    return txt;
+  }
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value);
+      received += value.length;
+      onProgress?.(received, total);
+    }
+  }
+  const buf = new Uint8Array(received);
+  let off = 0;
+  for (const c of chunks) {
+    buf.set(c, off);
+    off += c.length;
+  }
+  return new TextDecoder().decode(buf);
+}
+
 // Egress saver (#12): a poet's poems are a few KB, but a bucket is ~0.9 MB. With the byte-offset
 // sidecar (poems/{bucket}.idx.json), fetch ONLY this poet's slice via an HTTP Range request. The
 // .json stays one valid JSON object, so we transparently fall back to the whole bucket when the
 // sidecar is absent (old data) or the host ignores Range (returns 200 instead of 206).
-export async function loadPoetPoems(id: string, base = DATA_BASE): Promise<PoemRecord[]> {
+export async function loadPoetPoems(
+  id: string,
+  base = DATA_BASE,
+  onProgress?: (received: number, total: number) => void,
+): Promise<PoemRecord[]> {
   const cached = _poemCache.get(id);
   if (cached) return cached;
   const bucket = id.slice(0, 2);
@@ -177,7 +217,7 @@ export async function loadPoetPoems(id: string, base = DATA_BASE): Promise<PoemR
           headers: { Range: `bytes=${off}-${off + len - 1}` },
         });
         if (res.status === 206) {
-          const txt = await res.text();
+          const txt = await readWithProgress(res, onProgress);
           try {
             const poems = JSON.parse(txt) as PoemRecord[]; // the slice IS valid JSON
             _poemCache.set(id, poems);

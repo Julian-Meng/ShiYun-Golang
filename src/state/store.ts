@@ -30,6 +30,8 @@ interface State {
   poetPoems: PoemRecord[] | null;
   // poetId whose poem fetch FAILED (network) — PoetPanel turns the eternal 载入作品… into an error + 重试
   poetPoemsError: string | null;
+  // 大诗人切片首访下载进度(received/total 字节,带 id 防串台);PoetPanel 在载入态显示百分比/进度条。
+  poetPoemsProgress: { id: string; received: number; total: number } | null;
   poetFocus: { poemIdx: number; title: string; firstLine: string } | null; // poem to surface (诗句 search)
   // 赠诗 network
   showGifts: boolean;
@@ -102,6 +104,7 @@ interface State {
   selectPoet: (p: PoetRow, focus?: { poemIdx: number; title: string; firstLine: string } | null) => void;
   setPoetPoems: (id: string, poems: PoemRecord[]) => void;
   setPoetPoemsError: (id: string | null) => void;
+  setPoetPoemsProgress: (p: { id: string; received: number; total: number } | null) => void;
   clearPoet: () => void;
   hopToPoet: (p: PoetRow) => void; // travel along a 赠诗 edge: select + lock + APPEND to the trail (or
   //   trim back to it if already on the trail). Backed by GiftTrail's persistent return lines.
@@ -152,6 +155,7 @@ export const useStore = create<State>((set) => ({
   selectedPoet: null,
   poetPoems: null,
   poetPoemsError: null,
+  poetPoemsProgress: null,
   poetFocus: null,
   showGifts: false,
   guideMode: "flash",
@@ -213,19 +217,22 @@ export const useStore = create<State>((set) => ({
   setHoverPoem: (hoverPoem) => set({ hoverPoem }),
   selectPoet: (selectedPoet, focus = null) =>
     // a NORMAL selection (3D star / search / planet) starts a FRESH trail at this poet (点无关诗人清除)
-    set({ selectedPoet, poetPoems: null, poetPoemsError: null, poetFocus: focus, selected: null, cinemaPoemIdx: null, giftTrail: [selectedPoet.id] }),
+    set({ selectedPoet, poetPoems: null, poetPoemsError: null, poetPoemsProgress: null, poetFocus: focus, selected: null, cinemaPoemIdx: null, giftTrail: [selectedPoet.id] }),
   setPoetPoems: (id, poems) =>
-    set((s) => (s.selectedPoet?.id === id ? { poetPoems: poems, poetPoemsError: null } : {})),
+    set((s) => (s.selectedPoet?.id === id ? { poetPoems: poems, poetPoemsError: null, poetPoemsProgress: null } : {})),
   setPoetPoemsError: (id) =>
     set((s) => (id === null || s.selectedPoet?.id === id ? { poetPoemsError: id } : {})),
-  clearPoet: () => set({ selectedPoet: null, poetPoems: null, poetPoemsError: null, poetFocus: null, cinemaPoemIdx: null, lockPoetId: null, lockPoemIdx: null, giftTrail: [], hoverPoem: null }),
+  // progress carries its own poetId → ignore late ticks from a previous poet's in-flight download.
+  setPoetPoemsProgress: (p) =>
+    set((s) => (p === null || s.selectedPoet?.id === p.id ? { poetPoemsProgress: p } : {})),
+  clearPoet: () => set({ selectedPoet: null, poetPoems: null, poetPoemsError: null, poetPoemsProgress: null, poetFocus: null, cinemaPoemIdx: null, lockPoetId: null, lockPoemIdx: null, giftTrail: [], hoverPoem: null }),
   hopToPoet: (poet) =>
     set((s) => {
       const id = poet.id;
       const i = s.giftTrail.indexOf(id);
       // already on the trail → trim back to it (返回); else append, capping at 11 nodes (= 10 return lines)
       const giftTrail = i >= 0 ? s.giftTrail.slice(0, i + 1) : [...s.giftTrail, id].slice(-11);
-      return { selectedPoet: poet, poetPoems: null, poetPoemsError: null, poetFocus: null, selected: null, cinemaPoemIdx: null, lockPoetId: id, lockPoemIdx: null, giftTrail };
+      return { selectedPoet: poet, poetPoems: null, poetPoemsError: null, poetPoemsProgress: null, poetFocus: null, selected: null, cinemaPoemIdx: null, lockPoetId: id, lockPoemIdx: null, giftTrail };
     }),
   clearTrail: () => set((s) => ({ giftTrail: s.selectedPoet ? [s.selectedPoet.id] : [], pathResult: null })),
   setPath: (pathStart, pathEnd, pathResult) => set({ pathStart, pathEnd, pathResult }),

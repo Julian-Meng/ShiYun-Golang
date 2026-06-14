@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { PoetRow } from "../data/load";
 import { galaxySpin, poemClock } from "./galaxyParams";
 import { pickTargets, type PickResult } from "./picking";
+import { COARSE } from "./detectQuality";
 
 // GPU colour-ID picking — replaces the O(29,808)/hover CPU scan in FlyControls.screenPick.
 // Each poet's index is colour-encoded into a vertex attribute (aPickColor); on a pick we render
@@ -29,6 +30,25 @@ export const POEM_PICK_BASE = 0x800000;
 export function encodePoemPickColor(localId: number): [number, number, number] {
   const id = POEM_PICK_BASE + localId; // always > poet ids and > 0 (never the background miss)
   return [(id & 255) / 255, ((id >> 8) & 255) / 255, ((id >> 16) & 255) / 255];
+}
+
+// The poem pick disc was rendered at the UN-flared apparent size while the VISIBLE planet is drawn with
+// a flare (PoemOrbits HOLD flareSize ≈ 1 + 0.6*1.8 = 2.08) → the clickable area was only ~¼ of the glow
+// the user sees ("选中后诗的选中面积依然很小"). Boost the pick disc by ≈ that flare so 可点盘 = 可见光点
+// (所见即所点): linear ×2.1 → area ×≈4.4 (≥2×). Keep ≈ PoemOrbits' HOLD_FLARE-derived flareSize.
+export const POEM_CLICK_BOOST = 2.1;
+
+// Mirror of the poem pick vertex shader's gl_PointSize (keep the two in sync). apparentPx = uScale/-mv.z;
+// returns the boosted clickable-disc diameter in drawing-buffer px.
+export function poemPickDiscPx(apparentPx: number, maxPx: number, gatePx = 0, boost = POEM_CLICK_BOOST): number {
+  const sz = Math.min(Math.max(apparentPx, 1), maxPx); // un-flared apparent size (= visual pre-flare)
+  return Math.min(Math.max(sz * boost, gatePx), maxPx * boost);
+}
+
+// Pick window radius (drawing-buffer px). Coarse (touch) pointers get a wider tolerance so a fat-finger
+// tap NEAR a planet still lands; a mouse keeps the tighter ~6 CSS-px. pr = renderer pixel ratio.
+export function pickRadiusPx(pr: number, coarse: boolean): number {
+  return Math.max(2, Math.round((coarse ? 11 : 6) * pr));
 }
 
 // Like nearestPoetIndex but returns the RAW decoded id (0 = miss) so the caller can split poet vs poem.
@@ -127,10 +147,10 @@ export function createGpuPicker(
     depthTest: true,
     depthWrite: true,
     blending: THREE.NoBlending,
-    uniforms: { uScale: { value: 360 }, uMax: { value: 11 }, uGate: { value: 3.0 }, uTime: { value: 0 } },
+    uniforms: { uScale: { value: 360 }, uMax: { value: 11 }, uGate: { value: 3.0 }, uTime: { value: 0 }, uClickBoost: { value: POEM_CLICK_BOOST } },
     vertexShader: /* glsl */ `
       attribute vec3 aPickColor; attribute vec3 aCenter; attribute float aOmega;
-      uniform float uScale; uniform float uMax; uniform float uGate; uniform float uTime;
+      uniform float uScale; uniform float uMax; uniform float uGate; uniform float uTime; uniform float uClickBoost;
       varying vec3 vPick;
       void main() {
         // self-rotate exactly like the visual planet shader so the click lands where it's drawn
@@ -139,9 +159,11 @@ export function createGpuPicker(
         float c = cos(ang), s = sin(ang);
         vec3 wp = aCenter + vec3(off0.x * c - off0.z * s, off0.y, off0.x * s + off0.z * c);
         vec4 mv = modelViewMatrix * vec4(wp, 1.0);
-        float sz = clamp(uScale / -mv.z, 1.0, uMax); // SAME apparent size as the visual planet
-        if (sz < uGate) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
-        gl_PointSize = clamp(sz, uGate, uMax);
+        float sz = clamp(uScale / -mv.z, 1.0, uMax); // un-flared apparent size (= visual planet BEFORE its flare)
+        if (sz < uGate) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; } // gate on un-flared → SAME planets clickable as before
+        // boost the DISC (not the gate) to ≈ the FLARED visible planet (uClickBoost ≈ HOLD flareSize):
+        // clickable area ≈ what the user sees (was ~¼ of it) → ≥2× the old pick area, easier on touch.
+        gl_PointSize = clamp(sz * uClickBoost, uGate, uMax * uClickBoost);
         vPick = aPickColor;
         gl_Position = projectionMatrix * mv;
       }`,
@@ -179,7 +201,7 @@ export function createGpuPicker(
     const fullW = sizeV.x, fullH = sizeV.y;
     if (fullW < 1 || fullH < 1) return null;
     const gate = 4.4 * pr; // == old apparent>=2.2 CSS-px gate (diameter), in drawing-buffer px
-    const radius = Math.max(2, Math.round(6 * pr)); // ~6 CSS-px click tolerance, drawing-buffer px
+    const radius = pickRadiusPx(pr, COARSE); // ~6 CSS-px (mouse) / ~11 (touch) click tolerance, drawing-buffer px
     const n = radius * 2 + 1;
     if (rt.width !== n) {
       rt.setSize(n, n);

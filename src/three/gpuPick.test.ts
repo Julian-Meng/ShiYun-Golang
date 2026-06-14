@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { encodePickColor, encodePoemPickColor, nearestPoetIndex, nearestPickId, POEM_PICK_BASE } from "./gpuPick";
+import {
+  encodePickColor,
+  encodePoemPickColor,
+  nearestPoetIndex,
+  nearestPickId,
+  POEM_PICK_BASE,
+  POEM_CLICK_BOOST,
+  poemPickDiscPx,
+  pickRadiusPx,
+} from "./gpuPick";
 
 // Decode the way the picker does on CPU after readback (id = r | g<<8 | b<<16; index = id-1).
 const decode = (r: number, g: number, b: number) => (r | (g << 8) | (b << 16)) - 1;
@@ -100,5 +109,31 @@ describe("nearestPoetIndex", () => {
     put(buf, 2, 2, 777);
     put(buf, 1, 2, 888);
     expect(nearestPoetIndex(buf, n, radius)).toBe(777);
+  });
+});
+
+// 诗·光点点击面积:拾取盘以前只取「未 flare」尺寸,而可见光点带 flare(≈2.08×)→ 可点面积仅约可见的 ¼。
+// 方案 A 给拾取盘乘 POEM_CLICK_BOOST,使可点盘 = 可见光点(所见即所点),线性 ≥√2 → 面积 ≥2×。
+// 方案 B:触控指针拾取窗口半径更大。这两个纯函数镜像着色器/pick() 里的数学(改一处务必同步)。
+describe("poem 拾取盘放大 (≥2× 面积, WYSIWYG) + 触控容差", () => {
+  it("POEM_CLICK_BOOST 在 [√2, 3]:线性 ≥√2 → 面积 ≥2×,上限防止盘面过大", () => {
+    expect(POEM_CLICK_BOOST).toBeGreaterThanOrEqual(Math.SQRT2);
+    expect(POEM_CLICK_BOOST).toBeLessThanOrEqual(3);
+  });
+  it("poemPickDiscPx:boosted 盘面线性 ≥ √2 × 原(未 boost)→ 面积至少翻倍", () => {
+    for (const ap of [4, 8, 20, 44, 80]) {
+      const unboosted = Math.min(Math.max(ap, 1), 44); // 旧拾取盘(boost=1)
+      const boosted = poemPickDiscPx(ap, 44);
+      expect(boosted / unboosted).toBeGreaterThanOrEqual(Math.SQRT2);
+    }
+  });
+  it("poemPickDiscPx:盘面 = clamp(apparent)×boost,且不超过 maxPx×boost(与可视 flare 上限一致)", () => {
+    expect(poemPickDiscPx(20, 44)).toBeCloseTo(20 * POEM_CLICK_BOOST, 5);
+    expect(poemPickDiscPx(1000, 44)).toBeCloseTo(44 * POEM_CLICK_BOOST, 5); // 远处/极近都封顶在 maxPx×boost
+  });
+  it("pickRadiusPx:触控比鼠标更宽容,二者 ≥2px,且随 DPR 放大", () => {
+    expect(pickRadiusPx(1, true)).toBeGreaterThan(pickRadiusPx(1, false)); // 触控容差更大
+    expect(pickRadiusPx(1, false)).toBeGreaterThanOrEqual(2);
+    expect(pickRadiusPx(2, false)).toBeGreaterThanOrEqual(pickRadiusPx(1, false)); // 高 DPR 不更小
   });
 });

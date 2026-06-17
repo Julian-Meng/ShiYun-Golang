@@ -7,7 +7,7 @@ import * as OpenCC from "opencc-js";
 import { pinyin } from "pinyin-pro";
 import { fileURLToPath } from "node:url";
 
-const RHYME_SRC = "C:/corpus/Pingshui_Rhyme.json"; // external; raw charlesix59 平水韵 file
+const RHYME_SRC = process.env.RHYME_FILE || "C:/corpus/Pingshui_Rhyme.json"; // charlesix59 平水韵 (MIT). Override via RHYME_FILE.
 const CHARSET = fileURLToPath(new URL("../public/data/charset.json", import.meta.url));
 const OUT = fileURLToPath(new URL("../public/data/lexicon.json", import.meta.url));
 

@@ -4,6 +4,24 @@
   "version": "0.1.0",
   "type": "module",
   "description": "诗云 / Poetry Cloud — a roamable 3D star map of all possible regulated-verse poems, indexed not stored.",
+  "homepage": "https://shiyun.cohenjikan.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cohenjikan/shiyun.git"
+  },
+  "license": "MIT",
+  "author": "Cohenjikan (https://cohenjikan.com)",
+  "keywords": [
+    "poetry",
+    "chinese-poetry",
+    "three.js",
+    "webgl",
+    "react-three-fiber",
+    "generative",
+    "library-of-babel",
+    "visualization",
+    "诗云"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

@@ -1,6 +1,6 @@
 // 诗云 — cold-backup packing script for the git-ignored heavy data (poems/ lines/ search/, ~1.1 GB).
 //
-// Why: the heavy data is git-ignored, cannot be rebuilt without the C:/corpus corpora, and its only
+// Why: the heavy data is git-ignored, cannot be rebuilt without the external corpora, and its only
 // off-machine copy is a GitHub-release "cold backup". That backup is hand-made today — hand-tarred,
 // hand-checksummed, ~201 assets hand-uploaded (see docs/DEPLOY.md §1.0 Option A′, release
 // data-v2-2026-06-10). This script reduces that to: run it, then paste the two printed gh commands.

@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SRC = "C:/corpus/Werneror-Poetry"; // external corpus clone (persists on this machine)
+const SRC = process.env.WERNEROR_DIR || "C:/corpus/Werneror-Poetry"; // Werneror/Poetry clone (MIT). Override path via WERNEROR_DIR.
 const OUT = fileURLToPath(new URL("../public/data", import.meta.url)); // this project's data dir
 
 // ── 字库 FREEZE (production contract) ──────────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ const recordModern = (id, lines) => {
   if (!s) { s = new Set(); modernSeen.set(id, s); }
   s.add(modernKey(lines));
 };
-const MODERN = "C:/corpus/modern-poetry/China-modern-poetry/contemporary";
+const MODERN = process.env.MODERN_DIR || "C:/corpus/modern-poetry/China-modern-poetry/contemporary"; // yuxqiu/modern-poetry clone (Apache-2.0). Override via MODERN_DIR.
 const ALLOW_NO_MODERN = process.env.ALLOW_NO_MODERN === "1";
 // Resolve the modern file list FIRST. A missing clone is the dangerous case: the git-tracked
 // poets.index.json already contains the 508 modern poets, so rebuilding WITHOUT them silently desyncs
@@ -239,7 +239,7 @@ if (mfiles.length) {
 //    Tooling MIT; the poem TEXTS remain author-copyrighted, repo README: 非商用 — same exposure
 //    class as the existing yuxqiu modern layer; recorded in DATA_CONTRACT/credits.
 //    Charset-frozen gate above guarantees this import cannot change N or any existing 编号. ──
-const SHEEPZH = "C:/corpus/sheepzh-poetry/data";
+const SHEEPZH = process.env.SHEEPZH_DIR || "C:/corpus/sheepzh-poetry/data"; // sheepzh/poetry clone. Override via SHEEPZH_DIR.
 const ALLOW_NO_SHEEPZH = process.env.ALLOW_NO_SHEEPZH === "1";
 // author folders are community-contributed; keep only plain Han names (+ ethnic-name middle dot)
 // to drop handle/junk folders like 666_666, Apple_apple, AT_at.

@@ -17,16 +17,16 @@ backup). See [Data model](#output-actual).
 ## Input
 
 [`Werneror/Poetry`](https://github.com/Werneror/Poetry) shallow-cloned to
-`C:\corpus\Werneror-Poetry` — all-dynasties CSV (`"题目","朝代","作者","内容"`, **Simplified**,
+`<corpus>\Werneror-Poetry` — all-dynasties CSV (`"题目","朝代","作者","内容"`, **Simplified**,
 MIT), split into per-dynasty files (宋_1..4, 明_1..4, 清_1..2, + transition buckets).
 
 **现代 新诗 (free verse):** TWO sources, ingested in order with cross-source content dedup:
 
 1. [`yuxqiu/modern-poetry`](https://github.com/yuxqiu/modern-poetry) contemporary set cloned to
-   `C:\corpus\modern-poetry` (Apache-2.0): **+4,494 poems / +508 poets** — preserved verbatim
+   `<corpus>\modern-poetry` (Apache-2.0): **+4,494 poems / +508 poets** — preserved verbatim
    (poem order/idx unchanged from v1).
 2. **v2:** [`sheepzh/poetry`](https://github.com/sheepzh/poetry) 汉语现代诗歌语料库 cloned to
-   `C:\corpus\sheepzh-poetry` (tooling MIT; poem texts author-copyrighted, 非商用):
+   `<corpus>\sheepzh-poetry` (tooling MIT; poem texts author-copyrighted, 非商用):
    **+75,980 poems / +2,849 poets** after (a) content-dedup vs yuxqiu (3,016 dropped),
    (b) junk-folder filter — author must match `^[Han·]{1,8}$` (125 handle/test folders like
    `666_666` dropped), (c) the charset-frozen gate (1,597 poems w/ out-of-字库 chars skipped).

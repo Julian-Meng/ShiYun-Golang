@@ -11,11 +11,11 @@ build is fully static, exactly as before.
 ## ▶ Quickstart for the deploy / 运维 AI
 
 Latest code is on **`main`** (`origin/main`). The heavy poem data is **git-ignored (~1.1 GB)** and lives,
-complete + verified, in the **main worktree** at `C:\Users\Cohen\Desktop\shiyun\public\data`. Fastest correct
+complete + verified, in the **main worktree** at `<repo>\public\data`. Fastest correct
 deploy — build there, where both the latest code (after pull) and the data already exist:
 
 ```bash
-cd C:\Users\Cohen\Desktop\shiyun     # the main worktree — already has the complete public/data
+cd <repo>     # the main worktree — already has the complete public/data
 git pull                             # fast-forward to the latest merged code
 npm ci
 npm run deploy:build                 # tsc + vite build → dist/ (heavy data baked in) + precompress
@@ -49,11 +49,11 @@ checkout boots the galaxy + author list but **cannot load any poem** until you p
   dirs into your build tree:
   ```bash
   # from a fresh clone's repo root, on the same machine:
-  cp -r "C:/Users/Cohen/Desktop/shiyun/public/data/poems"  public/data/
-  cp -r "C:/Users/Cohen/Desktop/shiyun/public/data/lines"  public/data/   # only if you want 诗句 search
-  cp -r "C:/Users/Cohen/Desktop/shiyun/public/data/search" public/data/   # only if you want 寻诗/探诗 search
+  cp -r "<repo>/public/data/poems"  public/data/
+  cp -r "<repo>/public/data/lines"  public/data/   # only if you want 诗句 search
+  cp -r "<repo>/public/data/search" public/data/   # only if you want 寻诗/探诗 search
   ```
-  (On Windows you can junction instead of copy: `New-Item -ItemType Junction -Path public\data\poems -Target "C:\Users\Cohen\Desktop\shiyun\public\data\poems"` — vite follows junctions when copying into `dist/`.)
+  (On Windows you can junction instead of copy: `New-Item -ItemType Junction -Path public\data\poems -Target "<repo>\public\data\poems"` — vite follows junctions when copying into `dist/`.)
 - **Option A′ — restore from the GitHub backup (works on ANY machine).** The v2 data set is archived as
   release assets on the private repo — release **`data-v2-2026-06-10`** at
   `https://github.com/Cohenjikan/shiyun/releases` (assets: `poems.tar.gz`, `lines.tar.gz`,
@@ -66,8 +66,8 @@ checkout boots the galaxy + author list but **cannot load any poem** until you p
   ```
   Old v1 data (pre-2026-06-10, 29,808 poets) is kept on the dev machine as `public/data/*_v1_backup`
   for rollback only — do not deploy it; the git-tracked `poets.index.json` now matches v2.
-- **Option B — regenerate (only if you have the corpora).** Needs `C:/corpus/Werneror-Poetry` **and**
-  `C:/corpus/modern-poetry` cloned. **This OVERWRITES `public/data`.** A missing modern corpus now **fails
+- **Option B — regenerate (only if you have the corpora).** Needs `<corpus>/Werneror-Poetry` **and**
+  `<corpus>/modern-poetry` cloned. **This OVERWRITES `public/data`.** A missing modern corpus now **fails
   loud** (it used to silently drop the 508 modern 新诗 poets and desync the index): set `ALLOW_NO_MODERN=1`
   only for an intentional Werneror-only build.
   ```bash

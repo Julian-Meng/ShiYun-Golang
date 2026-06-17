@@ -1,7 +1,7 @@
 # 诗云 / Poetry Cloud — 开发日志 (DEVLOG)
 
 Chronological, newest first. Each entry: commits + what changed + how it was verified. The per-area
-"what works" matrix lives in [HANDOFF.md](../HANDOFF.md); this file is the running diary.
+"what works" matrix lives in [HANDOFF.md](devlog/HANDOFF.md); this file is the running diary.
 
 Verify gate every entry: `npm run build` (tsc + vite) + `npm test`. **The 3D scene cannot be verified
 on the headless preview** (swiftshader: the additive galaxy times out / the r3f Canvas subtree stays
@@ -258,7 +258,7 @@ Commits `0ac0bd7`→`140dc3b` on `main`.
 - **Feedback backend** (`state/feedback.ts`, `vite-env.d.ts` NEW, `.env.example` NEW): `submitFeedback` now ALSO
   POSTs `{source,message,ts}` to `VITE_FEEDBACK_ENDPOINT` when set (fire-and-forget, keepalive); localStorage
   stays the source of truth; unset ⇒ 100% static. Both paths verified in-browser.
-- **Build hardening** (`pipeline/build-data.mjs`): a missing `C:/corpus/modern-poetry` now **fails loud** (was a
+- **Build hardening** (`pipeline/build-data.mjs`): a missing `<corpus>/modern-poetry` now **fails loud** (was a
   WARN-only `try/catch` that silently dropped the 508 modern poets and desynced the index). Opt out: `ALLOW_NO_MODERN=1`.
 
 **Round 2 — data loading fix** (no code change; `f03b437` docs)

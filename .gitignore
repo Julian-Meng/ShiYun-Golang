@@ -23,3 +23,13 @@ public/data/_sxtmp/
 # Cold-backup tarballs produced by `npm run pack:data` (pipeline/pack-data.mjs) — never commit these;
 # they're the multi-hundred-MB GitHub-release assets, regenerated from public/data on demand.
 backup-pack/
+
+TODO/
+
+# Poetry Corpus
+corpus/
+
+# Go backend
+backend/data/
+backend/*.exe
+

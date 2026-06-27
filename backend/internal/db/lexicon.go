@@ -53,13 +53,13 @@ func GetCharset(db *sql.DB) (string, error) {
 
 // LexiconAsset mirrors the incoming lexicon.json shape.
 type LexiconAsset struct {
-	Version      int      `json:"version"`
-	N            int      `json:"n"`
-	PingList     []int    `json:"pingList"`
-	ZeList       []int    `json:"zeList"`
-	ToneClass    []int    `json:"toneClass"`
-	RhymeOf      []int    `json:"rhymeOf"`
-	RhymeMembers [][]int  `json:"rhymeMembers"`
+	Version      int     `json:"version"`
+	N            int     `json:"n"`
+	PingList     []int   `json:"pingList"`
+	ZeList       []int   `json:"zeList"`
+	ToneClass    []int   `json:"toneClass"`
+	RhymeOf      []int   `json:"rhymeOf"`
+	RhymeMembers [][]int `json:"rhymeMembers"`
 }
 
 // InsertLexicon stores the lexicon tables.

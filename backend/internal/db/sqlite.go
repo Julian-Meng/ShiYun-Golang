@@ -10,12 +10,29 @@ import (
 
 // Open initialises (or opens) the SQLite database at `dbPath`, runs schema
 // migrations if needed, and returns the ready pool.
+//
+// Performance pragmas (safe for read-heavy, single-writer workload):
+//
+//	cache_size   = -65536   →  64 MB page cache
+//	synchronous  = NORMAL   →  reduce fsync (WAL already protects integrity)
+//	temp_store   = MEMORY   →  temp tables in memory
 func Open(dbPath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, fmt.Errorf("sqlite open: %w", err)
 	}
 	db.SetMaxOpenConns(1) // SQLite serialises writes
+
+	for _, pragma := range []string{
+		"PRAGMA cache_size = -65536",
+		"PRAGMA synchronous = NORMAL",
+		"PRAGMA temp_store = MEMORY",
+	} {
+		if _, err := db.Exec(pragma); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("pragma: %w", err)
+		}
+	}
 
 	if err := migrate(db); err != nil {
 		db.Close()

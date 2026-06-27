@@ -4,6 +4,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"shiyun-backend/internal/api"
+	"shiyun-backend/internal/db"
 )
 
 func main() {
@@ -11,16 +14,21 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	dataDir := os.Getenv("SHIYUN_DATA_DIR")
+	if dataDir == "" {
+		dataDir = "data"
+	}
 
-	// Placeholder: health-check only until Phase 2.
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
-	})
+	sqlDB, err := db.Open(db.DefaultPath(dataDir))
+	if err != nil {
+		log.Fatalf("db open: %v", err)
+	}
+	defer sqlDB.Close()
+
+	handler := api.NewRouter(sqlDB)
 
 	log.Printf("shiyun-backend listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("server: %v", err)
 	}
 }

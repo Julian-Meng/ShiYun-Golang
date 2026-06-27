@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"shiyun-backend/internal/db"
+	"shiyun-backend/internal/engine"
 )
 
 // PoemHandler groups poem endpoints under /api/poems.
@@ -66,15 +67,54 @@ func (h *PoemHandler) Search(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"hits": hits})
 }
 
-// BabelIndex is a stub — Phase 3 will implement engine.anyUnrank.
+// BabelIndex looks up a poem by its universal catalog index.
 func (h *PoemHandler) BabelIndex(w http.ResponseWriter, r *http.Request) {
-	writeError(w, 501, "编号反查接口 (engine) 将在 Phase 3 实现")
+	index := r.PathValue("index")
+	if !engineDataReady() {
+		writeError(w, 503, "engine data not loaded")
+		return
+	}
+	p := engine.PullByIndex(engineDataRef.Lx, engineDataRef.Charset, index)
+	if p == nil {
+		writeError(w, 400, "invalid index")
+		return
+	}
+	p.Form = engine.InferForm(p.Lines)
+	writeJSON(w, 200, p)
 }
 
-// Pull is a stub — Phase 3 will implement engine pullAt.
+// Pull generates a poem at given coordinates (void pull).
 func (h *PoemHandler) Pull(w http.ResponseWriter, r *http.Request) {
-	writeError(w, 501, "void pull 接口 (engine) 将在 Phase 3 实现")
+	if !engineDataReady() {
+		writeError(w, 503, "engine data not loaded")
+		return
+	}
+	form := r.URL.Query().Get("form")
+	if form == "" {
+		form = "wujue"
+	}
+	var x, y, z float64
+	if s := r.URL.Query().Get("x"); s != "" {
+		x, _ = strconv.ParseFloat(s, 64)
+	}
+	if s := r.URL.Query().Get("y"); s != "" {
+		y, _ = strconv.ParseFloat(s, 64)
+	}
+	if s := r.URL.Query().Get("z"); s != "" {
+		z, _ = strconv.ParseFloat(s, 64)
+	}
+	pos := engine.Vec3{X: x, Y: y, Z: z}
+	p := engine.PullAt(engineDataRef.Lx, engineDataRef.Charset, form, pos, false, 0)
+	writeJSON(w, 200, p)
 }
+
+func engineDataReady() bool {
+	EngineData.RLock()
+	defer EngineData.RUnlock()
+	return EngineData.Ready
+}
+
+var engineDataRef = &EngineData
 
 // ── helpers ──
 

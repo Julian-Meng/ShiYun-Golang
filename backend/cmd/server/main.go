@@ -25,6 +25,11 @@ func main() {
 	}
 	defer sqlDB.Close()
 
+	if err := api.LoadEngine(sqlDB); err != nil {
+		log.Fatalf("engine load: %v", err)
+	}
+	log.Println("engine data loaded")
+
 	handler := api.NewRouter(sqlDB)
 
 	log.Printf("shiyun-backend listening on :%s", port)

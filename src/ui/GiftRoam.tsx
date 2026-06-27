@@ -39,8 +39,16 @@ export function GiftRoam() {
   // path endpoints can be typed (reuse the 诗人 search) OR set from the current selection
   const [startQ, setStartQ] = useState("");
   const [endQ, setEndQ] = useState("");
-  const startRes = startQ.trim() ? searchPoets(startQ, 6) : [];
-  const endRes = endQ.trim() ? searchPoets(endQ, 6) : [];
+  const [startRes, setStartRes] = useState<PoetRow[]>([]);
+  const [endRes, setEndRes] = useState<PoetRow[]>([]);
+  useEffect(() => {
+    if (startQ.trim()) searchPoets(startQ, 6).then(setStartRes).catch(() => setStartRes([]));
+    else setStartRes([]);
+  }, [startQ]);
+  useEffect(() => {
+    if (endQ.trim()) searchPoets(endQ, 6).then(setEndRes).catch(() => setEndRes([]));
+    else setEndRes([]);
+  }, [endQ]);
 
   if (!showGifts) return null;
 

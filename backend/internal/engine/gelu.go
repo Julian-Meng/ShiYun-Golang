@@ -1,6 +1,14 @@
 package engine
 
-import "math/big"
+import (
+	"errors"
+	"math/big"
+)
+
+var (
+	errRegulatedOutOfRange = errors.New("regulated index out of range")
+	errRhymeOverflow       = errors.New("rhyme index overflow")
+)
 
 // ── Tone templates (4 基本律句 + 对/粘) ──
 // Tone: 0 = 平 (level), 1 = 仄 (oblique)
@@ -186,7 +194,8 @@ func mixedEncode(digits []*big.Int, radices []*big.Int) *big.Int {
 }
 
 // RegulatedUnrank converts a 格律 index to a RegPoem.
-func RegulatedUnrank(lx Lexicon, form FormDef, s *big.Int) RegPoem {
+// Returns error if s is out of range instead of panicking.
+func RegulatedUnrank(lx Lexicon, form FormDef, s *big.Int) (RegPoem, error) {
 	variants := VariantsFor(form)
 	Psz := big.NewInt(int64(len(lx.PingList)))
 	Zsz := big.NewInt(int64(len(lx.ZeList)))
@@ -211,7 +220,7 @@ func RegulatedUnrank(lx Lexicon, form FormDef, s *big.Int) RegPoem {
 		rem.Sub(rem, vsize)
 	}
 	if vIdx < 0 {
-		panic("s out of range")
+		return RegPoem{}, errRegulatedOutOfRange
 	}
 	v := variants[vIdx]
 	rp := make(map[int]bool)
@@ -232,7 +241,7 @@ func RegulatedUnrank(lx Lexicon, form FormDef, s *big.Int) RegPoem {
 		rem.Sub(rem, block)
 	}
 	if q < 0 {
-		panic("rhyme index overflow")
+		return RegPoem{}, errRhymeOverflow
 	}
 	Rsz := big.NewInt(int64(len(lx.RhymeMembers[q])))
 	radices := make([]*big.Int, form.L)
@@ -259,11 +268,11 @@ func RegulatedUnrank(lx Lexicon, form FormDef, s *big.Int) RegPoem {
 			chars[i] = int(lx.RhymeMembers[q][d])
 		}
 	}
-	return RegPoem{Form: form.ID, Variant: vIdx, Rhyme: q, Chars: chars}
+	return RegPoem{Form: form.ID, Variant: vIdx, Rhyme: q, Chars: chars}, nil
 }
 
 // RegulatedRank converts a RegPoem to its 格律 index.
-func RegulatedRank(lx Lexicon, form FormDef, poem RegPoem) *big.Int {
+func RegulatedRank(lx Lexicon, form FormDef, poem RegPoem) (*big.Int, error) {
 	variants := VariantsFor(form)
 	v := variants[poem.Variant]
 	rp := make(map[int]bool)
@@ -312,18 +321,27 @@ func RegulatedRank(lx Lexicon, form FormDef, poem RegPoem) *big.Int {
 			off.Add(off, new(big.Int).Mul(b2, new(big.Int).Exp(big.NewInt(int64(len(members))), big.NewInt(int64(ck.rh)), nil)))
 		}
 	}
-	return off.Add(off, inner)
+	return off.Add(off, inner), nil
 }
 
 // ── Independent validator + variant matcher ──
 
 // MatchVariant checks if a character sequence matches a 格律 variant.
+// Requires chars[i] ∈ [0, N) for all i; returns nil for out-of-range input.
 func MatchVariant(lx Lexicon, form FormDef, chars []int) *RegPoem {
+	if len(chars) < form.L {
+		return nil
+	}
+	N := lx.N
 	variants := VariantsFor(form)
 	for vi, v := range variants {
 		ok := true
 		for i := 0; i < form.L && ok; i++ {
-			if int(lx.ToneClass[chars[i]]) != v.Tones[i] {
+			c := chars[i]
+			if c < 0 || c >= N || c >= len(lx.ToneClass) {
+				return nil
+			}
+			if int(lx.ToneClass[c]) != v.Tones[i] {
 				ok = false
 			}
 		}

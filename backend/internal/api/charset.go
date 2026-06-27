@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	"shiyun-backend/internal/db"
@@ -12,7 +13,10 @@ type CharsetHandler struct {
 	DB *sql.DB
 }
 
-// GetCharset returns the full ordered 字库.
+// loadedCharsetHash is set once LoadEngine is called, used by manifest endpoint.
+var loadedCharsetHash string
+
+// GetCharset returns the full ordered 字库 with computed hash.
 func (h *CharsetHandler) GetCharset(w http.ResponseWriter, r *http.Request) {
 	chars, err := db.GetCharset(h.DB)
 	if err != nil {
@@ -20,12 +24,25 @@ func (h *CharsetHandler) GetCharset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	runes := []rune(chars)
+	hsh := fnv1a(chars)
 	writeJSON(w, 200, map[string]any{
 		"version": 1,
 		"n":       len(runes),
-		"hash":    "",
+		"hash":    hsh,
 		"chars":   chars,
 	})
+}
+
+// fnv1a computes FNV-1a 32-bit hex over each code point (rune).
+// Byte-identical to TS charsetHash.ts: `h ^= charCodeAt(i); h = Math.imul(h, 0x01000193)`.
+// The charset contains only BMP characters (U+0000-U+FFFF), so charCodeAt == code point.
+func fnv1a(s string) string {
+	var h uint32 = 0x811c9dc5
+	for _, r := range s {
+		h ^= uint32(r)
+		h *= 0x01000193
+	}
+	return fmt.Sprintf("%08x", h)
 }
 
 // GetLexicon returns the full lexicon (tone + rhyme data).

@@ -1,0 +1,135 @@
+# 诗云 / Poetry Cloud — task runner
+# go install github.com/go-task/task/v3/cmd/task@latest
+version: "3"
+
+vars:
+  BACKEND_DIR: backend
+  FRONTEND_PORT: 5199
+  BACKEND_PORT: 8080
+
+tasks:
+  # ── development ──
+  dev:frontend:
+    desc: Start Vite dev server (frontend only)
+    dir: "."
+    cmds:
+      - npm run dev
+
+  dev:backend:
+    desc: Start Go API server (backend only)
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go run ./cmd/server/
+
+  dev:
+    desc: Start both frontend and backend concurrently
+    deps:
+      - task: dev:backend
+      - task: dev:frontend
+
+  # ── build ──
+  build:frontend:
+    desc: Production build of the frontend
+    dir: "."
+    cmds:
+      - npm run typecheck
+      - npm run build
+
+  build:backend:
+    desc: Build Go server binary
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go build -o server.exe ./cmd/server/
+
+  build:import:
+    desc: Build Go data import tool
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go build -o import.exe ./cmd/import/
+
+  build:
+    desc: Build both frontend and backend
+    cmds:
+      - task: build:backend
+      - task: build:frontend
+
+  # ── pipeline ──
+  pipeline:lines:
+    desc: Build poem shards + search index (requires corpus/)
+    dir: "."
+    cmds:
+      - npm run build:lines
+
+  pipeline:fuzzy:
+    desc: Build fuzzy search index (optional, large)
+    dir: "."
+    cmds:
+      - npm run build:fuzzy
+
+  import:
+    desc: Import JSON data shards into SQLite
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - task: build:import
+      - ./import.exe
+
+  # ── test ──
+  test:frontend:
+    desc: Run frontend tests (vitest)
+    dir: "."
+    cmds:
+      - npm test
+
+  test:backend:
+    desc: Run Go tests
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go test ./... -count=1
+
+  test:backend:verbose:
+    desc: Run Go tests with verbose output
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go test ./... -v -count=1
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: test:backend
+      - task: test:frontend
+
+  # ── quality ──
+  lint:
+    desc: Run linters
+    cmds:
+      - task: lint:backend
+      - task: lint:frontend
+
+  lint:backend:
+    desc: Go vet + fmt check
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go vet ./...
+      - go fmt ./...
+
+  lint:frontend:
+    desc: TypeScript typecheck
+    dir: "."
+    cmds:
+      - npm run typecheck
+
+  # ── setup ──
+  setup:
+    desc: Install all dependencies
+    cmds:
+      - npm install
+      - cd {{.BACKEND_DIR}} && go mod tidy
+
+  # ── clean ──
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - cmd: rm -rf dist/
+        ignore_error: true
+      - cmd: rm -f "{{.BACKEND_DIR}}/server.exe" "{{.BACKEND_DIR}}/import.exe"
+        ignore_error: true

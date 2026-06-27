@@ -113,8 +113,14 @@ func TestGeluRoundTrip(t *testing.T) {
 		t.Run(form.ID, func(t *testing.T) {
 			// Edge cases
 			for _, s := range []*big.Int{big.NewInt(0), new(big.Int).Sub(gN, big.NewInt(1))} {
-				poem := RegulatedUnrank(fixtureLex, form, s)
-				got := RegulatedRank(fixtureLex, form, poem)
+				poem, err := RegulatedUnrank(fixtureLex, form, s)
+				if err != nil {
+					t.Fatalf("%s edge: RegulatedUnrank(%s) error: %v", form.ID, s, err)
+				}
+				got, err := RegulatedRank(fixtureLex, form, poem)
+				if err != nil {
+					t.Fatalf("%s edge: RegulatedRank error: %v", form.ID, err)
+				}
 				if got.Cmp(s) != 0 {
 					t.Errorf("%s edge: RegulatedRank(Unrank(%s)) = %s, want %s", form.ID, s, got, s)
 				}

@@ -126,9 +126,10 @@ export function SearchPanel() {
 
   function onChangePoet(v: string) {
     setQ(v);
-    const smart = searchPoetsSmart(v, 24);
-    setResults(smart.results);
-    setPoetNote(smart.note);
+    searchPoetsSmart(v, 24).then((smart) => {
+      setResults(smart.results);
+      setPoetNote(smart.note);
+    });
   }
   function onChangeLine(v: string) {
     setQ(v);

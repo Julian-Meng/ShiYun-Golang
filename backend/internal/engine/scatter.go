@@ -97,8 +97,9 @@ func halfBits(M *big.Int) *big.Int {
 
 // Scatter applies a reversible permutation (Feistel + cycle-walk) to x mod M.
 func Scatter(M *big.Int, key *big.Int, x *big.Int) *big.Int {
-	if M.Cmp(big.NewInt(1)) <= 0 {
-		return new(big.Int).Set(x)
+	two := big.NewInt(2)
+	if M.Cmp(two) <= 0 {
+		return new(big.Int).Set(x) // M ≤ 2 → keep x (Feistel needs larger domain)
 	}
 	b := halfBits(M)
 	y := feistelEnc(x, b, key, 4)

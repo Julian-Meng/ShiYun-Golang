@@ -102,8 +102,10 @@ func describe(lx Lexicon, charset []string, form FormDef, chars []int, pos Vec3)
 		Pos:         pos,
 	}
 	if matched != nil {
-		lushiIdx := RegulatedRank(lx, form, *matched).String()
-		result.LushiIndex = &lushiIdx
+		if lushiIndex, err := RegulatedRank(lx, form, *matched); err == nil {
+			s := lushiIndex.String()
+			result.LushiIndex = &s
+		}
 	}
 	return result
 }
@@ -163,8 +165,9 @@ func PullAt(lx Lexicon, charset []string, formId PullForm, pos Vec3, lushiOnly b
 		size := RegulatedSize(lx, form)
 		if size.Sign() > 0 {
 			s := IndexFromPoint(pos, size)
-			poem := RegulatedUnrank(lx, form, s)
-			return describe(lx, charset, form, poem.Chars, R)
+			if poem, err := RegulatedUnrank(lx, form, s); err == nil {
+				return describe(lx, charset, form, poem.Chars, R)
+			}
 		}
 	}
 	N := lx.N

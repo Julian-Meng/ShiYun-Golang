@@ -118,24 +118,18 @@ export interface PoetSearchSmart {
   note: string | null;
 }
 
-/** Poet search with the alias layer + graceful-miss copy. Drop-in for searchPoets in the UI. */
-export function searchPoetsSmart(q: string, limit = 24): PoetSearchSmart {
+/** Poet search with the alias layer + graceful-miss copy. Async — fetches from API. */
+export async function searchPoetsSmart(q: string, limit = 24): Promise<PoetSearchSmart> {
   const s = q.trim();
   if (!s) return { results: [], note: null };
-  // a REAL poet row with exactly this name always wins over the alias table (defensive: today no
-  // alias key collides with a row — poetAliases.test.ts asserts it — but future corpus updates
-  // could add e.g. a contemporary poet writing under 「小山」).
-  const direct = searchPoets(s, limit);
+  const direct = await searchPoets(s, limit);
   if (direct.some((p) => p.name === s)) return { results: direct, note: null };
   const canonical = POET_ALIASES[s];
   if (canonical) {
-    // exact alias: surface the canonical poet(s) first, then any other substring matches
-    const exact = searchPoets(canonical, limit).filter((p) => p.name === canonical);
+    const exact = (await searchPoets(canonical, limit)).filter((p) => p.name === canonical);
     const rest = direct.filter((p) => !exact.some((e) => e.id === p.id));
     return { results: [...exact, ...rest].slice(0, limit), note: `「${s}」即「${canonical}」` };
   }
-  // NOT_POETS explanation shows whenever there's no EXACT row for the query — even if substring
-  // matches exist (搜「庄子」 hits the contemporary poet 庄子轩; the philosopher still deserves his line).
   if (NOT_POETS[s]) return { results: direct, note: NOT_POETS[s] };
   if (direct.length) return { results: direct, note: null };
   return { results: direct, note: GENERIC_MISS };

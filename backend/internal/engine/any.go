@@ -19,7 +19,7 @@ func AnyRank(N int, syms []int) *big.Int {
 	return k
 }
 
-// AnyUnrank decodes an index back to a symbol sequence.
+// AnyUnrank decodes an index back to a symbol sequence (most-significant first).
 func AnyUnrank(N int, index *big.Int) []int {
 	B := big.NewInt(int64(N + 1))
 	out := make([]int, 0)
@@ -29,8 +29,11 @@ func AnyUnrank(N int, index *big.Int) []int {
 	for k.Sign() > 0 {
 		k.Sub(k, one)
 		k.DivMod(k, B, rem)
-		// Prepend: symbol in 0..N
-		out = append([]int{int(rem.Int64())}, out...)
+		out = append(out, int(rem.Int64()))
+	}
+	// Reverse to get most-significant first
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
 	}
 	return out
 }

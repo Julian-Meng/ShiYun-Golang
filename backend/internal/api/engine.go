@@ -29,6 +29,13 @@ func LoadEngine(db *sql.DB) error {
 	EngineData.Charset = chars
 	EngineData.Lx = loadLexicon(db, len(chars))
 	EngineData.Ready = true
+
+	// Compute charset hash for manifest
+	charsStr := ""
+	for _, c := range chars {
+		charsStr += c
+	}
+	loadedCharsetHash = fnv1a(charsStr)
 	return nil
 }
 

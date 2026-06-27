@@ -19,7 +19,16 @@ export default defineConfig(({ mode }) => {
     ],
     // Fixed reference port. strictPort → fail loudly instead of silently hopping to another
     // port (a sibling worktree's stale dev server on a hopped port would serve the WRONG code).
-    server: { port: 5199, strictPort: true },
+    server: {
+      port: 5199,
+      strictPort: true,
+      proxy: {
+        "/api": {
+          target: "http://localhost:8080",
+          changeOrigin: true,
+        },
+      },
+    },
     build: {
       target: "es2022",
       // three.js is irreducibly ~680 KB min (176 KB gz) and the app IS the canvas — code-splitting

@@ -20,10 +20,15 @@ func (h *GiftHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	count, _ := db.GiftEdgeCount(h.DB)
+	// Frontend expects GiftEdge = [string, string, number] tuple
+	tuples := make([][]any, 0, len(edges))
+	for _, e := range edges {
+		tuples = append(tuples, []any{e.From, e.To, e.Weight})
+	}
 	writeJSON(w, 200, map[string]any{
 		"version":   1,
 		"edgeCount": count,
-		"edges":     edges,
+		"edges":     tuples,
 	})
 }
 

@@ -75,8 +75,12 @@ func (h *PoetHandler) Poems(w http.ResponseWriter, r *http.Request) {
 	if poems == nil {
 		poems = []db.Poem{}
 	}
+	dtos := make([]PoemDTO, len(poems))
+	for i, p := range poems {
+		dtos[i] = PoemDTO{T: p.Title, F: p.Form, P: p.Lines}
+	}
 	writeJSON(w, 200, map[string]any{
 		"poetId": id,
-		"poems":  poems,
+		"poems":  dtos,
 	})
 }

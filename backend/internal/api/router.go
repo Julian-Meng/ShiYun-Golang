@@ -7,7 +7,7 @@ import (
 	"shiyun-backend/internal/db"
 )
 
-// NewRouter builds the chi mux with all API routes wired.
+// NewRouter builds the HTTP mux with all API routes wired.
 func NewRouter(conn *sql.DB) http.Handler {
 	mux := http.NewServeMux()
 
@@ -21,17 +21,41 @@ func NewRouter(conn *sql.DB) http.Handler {
 		writeJSON(w, 200, map[string]string{"status": "ok"})
 	})
 
-	// Manifest
+	// Manifest — includes buckets/dynCounts/poemSidecar for frontend compat
 	mux.HandleFunc("GET /api/manifest", func(w http.ResponseWriter, r *http.Request) {
 		var n int
 		conn.QueryRow("SELECT COUNT(*) FROM charset").Scan(&n)
 		pc, _ := db.PoetCount(conn)
 		pmc, _ := db.PoemCount(conn)
-		writeJSON(w, 200, map[string]any{
-			"version":   1,
-			"n":         n,
-			"poetCount": pc,
-			"poemCount": pmc,
+
+		// Buckets from the original manifest (256 hex buckets)
+		buckets := make([]string, 256)
+		for i := range buckets {
+			buckets[i] = string([]byte{byte(i) >> 4, byte(i) & 0xf})
+			buckets[i] = buckets[i][:2]
+		}
+		// Build dynCounts from DB
+		dynCounts := map[string]int{}
+		rows, err := conn.Query(`SELECT dynasty, COUNT(*) FROM poets GROUP BY dynasty`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var d string
+				var c int
+				rows.Scan(&d, &c)
+				dynCounts[d] = c
+			}
+		}
+
+		writeJSON(w, 200, ManifestDTO{
+			Version:     1,
+			N:           n,
+			CharsetHash: loadedCharsetHash,
+			PoetCount:   pc,
+			PoemCount:   pmc,
+			Buckets:     buckets,
+			DynCounts:   dynCounts,
+			PoemSidecar: true,
 		})
 	})
 
@@ -53,12 +77,10 @@ func NewRouter(conn *sql.DB) http.Handler {
 	mux.HandleFunc("GET /api/charset", charset.GetCharset)
 	mux.HandleFunc("GET /api/lexicon", charset.GetLexicon)
 
-	// 404
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 404, "not found")
 	})
 
-	// Middleware stack
 	var h http.Handler = mux
 	h = RequestLog(h)
 	h = CORS(h)

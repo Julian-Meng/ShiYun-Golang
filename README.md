@@ -1,5 +1,9 @@
 # 诗云 · Poetry Cloud
 
+<p align="center">
+  <a href="README.en.md">English</a> | 中文
+</p>
+
 > 一张可漫游的三维星图：32,657 位真实诗人化为星团，虚空是一切可能的诗——点击拾取，编号即诗、诗即编号。
 
 Forked from [Cohenjikan/shiyun](https://github.com/Cohenjikan/shiyun).  

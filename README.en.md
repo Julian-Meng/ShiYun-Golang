@@ -1,5 +1,9 @@
 # 诗云 · Poetry Cloud
 
+<p align="center">
+  English | <a href="README.md">中文</a>
+</p>
+
 > A roamable 3D star map: 32,657 real historical poets rendered as star clusters.  
 > The void between them is the space of *all possible poems* — click to pull one out.  
 > The number IS the poem, and vice versa.

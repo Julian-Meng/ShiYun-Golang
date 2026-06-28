@@ -142,109 +142,34 @@ SQLite (WAL mode), includes full poem texts + FTS5 index.
 
 ## Deployment
 
-### Architecture
-
-```
-                     ┌─────────────────┐
-                     │   Nginx / Caddy │  ← reverse proxy + static files
-                     └───┬─────────┬───┘
-                         │ /api/*  │ /*
-                    ┌────▼────┐ ┌──▼───┐
-                    │ Go API  │ │ dist/│  ← Vite build output
-                    │ :8080   │ │      │
-                    └────┬────┘ └──────┘
-                         │
-                    ┌────▼────┐
-                    │ SQLite  │
-                    │ (WAL)   │
-                    └─────────┘
-```
-
-### Production Build
-
-```bash
-# Frontend
-npm run build            # → dist/
-
-# Backend
-cd backend
-go build -ldflags="-s -w" -o shiyun-server ./cmd/server/
-```
-
-### Nginx Config
-
-```nginx
-server {
-    listen 80;
-    server_name shiyun.example.com;
-    root /var/www/shiyun/dist;
-    index index.html;
-
-    # API proxy
-    location /api/ {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    # SPA fallback
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Long-lived static cache
-    location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-```
-
 ### Docker
 
-```dockerfile
-FROM node:22 AS frontend
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+Multi-stage build → single image. The Go binary serves both API and frontend static files — no separate reverse proxy needed.
 
-FROM golang:1.26 AS backend
-WORKDIR /app
-COPY backend/ .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o server ./cmd/server/
+```bash
+# 1. Build image
+docker build -t shiyun .
 
-FROM alpine:3.21
-RUN apk add --no-cache ca-certificates tzdata
-COPY --from=frontend /app/dist /app/dist
-COPY --from=backend /app/server /app/server
-COPY --from=backend /app/data/shiyun.db /app/data/shiyun.db
-WORKDIR /app
-EXPOSE 8080
-CMD ["/app/server"]
+# 2. Prepare database (requires Quick Start steps 2-4 first)
+mkdir -p data
+cp backend/data/shiyun.db data/
+
+# 3. Run
+docker run -d \
+  --name shiyun \
+  -p 8080:8080 \
+  -v "$(pwd)/data:/app/data" \
+  shiyun
 ```
 
-### Systemd Service
+Open `http://localhost:8080` in browser.
 
-```ini
-[Unit]
-Description=Poetry Cloud API
-After=network.target
+**Dockerfile stages:**
 
-[Service]
-Type=simple
-User=shiyun
-WorkingDirectory=/opt/shiyun
-ExecStart=/opt/shiyun/shiyun-server
-Environment=SHIYUN_DATA_DIR=/opt/shiyun/data
-Environment=PORT=8080
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+- **Stage 1** — Node.js frontend build (`npm ci` → `npm run build` → `dist/`)
+- **Stage 2** — Go backend build (`CGO_ENABLED=0`, statically linked, stripped)
+- **Stage 3** — Alpine runtime, binary + frontend assets only
+- Database is volume-mounted, not baked into the image (`shiyun.db` ~679 MB)
 
 ## Commands
 
@@ -290,7 +215,7 @@ Both catalogs share one address space: every real poem has a unique coordinate i
 | 2 REST API | ✅ | 13 endpoints + FTS5 search + middleware |
 | 3 Engine Port | ✅ | rank/unrank/scatter in Go, 21 tests |
 | 4 Frontend | ✅ | API-adapted load.ts + Vite proxy |
-| 5 Deploy | ⬜ | Docker / Nginx / Systemd / CI |
+| 5 Deploy | ✅ | Multi-stage Docker build |
 | 6 Extras | ⬜ | User accounts / bookmarks / AI / i18n |
 
 ## Development

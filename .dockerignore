@@ -1,0 +1,8 @@
+node_modules
+corpus
+.git
+*.exe
+dist
+backend/data
+TODO
+pipeline

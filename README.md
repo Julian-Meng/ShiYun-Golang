@@ -140,109 +140,34 @@ SQLite (WAL 模式), 含全量诗作文本 + FTS5 全文索引。
 
 ## 部署
 
-### 架构
-
-```
-                     ┌─────────────────┐
-                     │   Nginx / Caddy │  ← 反向代理 + 静态文件
-                     └───┬─────────┬───┘
-                         │ /api/*  │ /*
-                    ┌────▼────┐ ┌──▼───┐
-                    │ Go API  │ │ dist/│  ← Vite 构建产物
-                    │ :8080   │ │      │
-                    └────┬────┘ └──────┘
-                         │
-                    ┌────▼────┐
-                    │ SQLite  │
-                    │ (WAL)   │
-                    └─────────┘
-```
-
-### 生产构建
-
-```bash
-# 前端
-npm run build            # → dist/
-
-# 后端
-cd backend
-go build -ldflags="-s -w" -o shiyun-server ./cmd/server/
-```
-
-### Nginx 配置示例
-
-```nginx
-server {
-    listen 80;
-    server_name shiyun.example.com;
-    root /var/www/shiyun/dist;
-    index index.html;
-
-    # API 代理
-    location /api/ {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    # SPA fallback
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 静态资源长期缓存
-    location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-```
-
 ### Docker
 
-```dockerfile
-FROM node:22 AS frontend
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+多阶段构建，单镜像即可运行。Go 后端在容器内同时 serve API 和前端静态文件，无需额外反向代理。
 
-FROM golang:1.26 AS backend
-WORKDIR /app
-COPY backend/ .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o server ./cmd/server/
+```bash
+# 1. 构建镜像
+docker build -t shiyun .
 
-FROM alpine:3.21
-RUN apk add --no-cache ca-certificates tzdata
-COPY --from=frontend /app/dist /app/dist
-COPY --from=backend /app/server /app/server
-COPY --from=backend /app/data/shiyun.db /app/data/shiyun.db
-WORKDIR /app
-EXPOSE 8080
-CMD ["/app/server"]
+# 2. 准备数据库（需先完成快速开始中的 Step 2-4）
+mkdir -p data
+cp backend/data/shiyun.db data/
+
+# 3. 运行
+docker run -d \
+  --name shiyun \
+  -p 8080:8080 \
+  -v "$(pwd)/data:/app/data" \
+  shiyun
 ```
 
-### 系统服务 (systemd)
+浏览器访问 `http://localhost:8080`。
 
-```ini
-[Unit]
-Description=诗云 Poetry Cloud API
-After=network.target
+**Dockerfile 说明：**
 
-[Service]
-Type=simple
-User=shiyun
-WorkingDirectory=/opt/shiyun
-ExecStart=/opt/shiyun/shiyun-server
-Environment=SHIYUN_DATA_DIR=/opt/shiyun/data
-Environment=PORT=8080
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+- **Stage 1** — Node.js 构建前端 (`npm ci` → `npm run build` → `dist/`)
+- **Stage 2** — Go 构建后端 (`CGO_ENABLED=0`，静态链接，strip symbols)
+- **Stage 3** — Alpine 运行时，仅含二进制 + 前端静态文件
+- 数据库通过 volume 挂载，不打包进镜像（`shiyun.db` ~679MB）
 
 ## 命令参考
 
@@ -288,7 +213,7 @@ WantedBy=multi-user.target
 | 2 REST API | ✅ | 13 端点 + FTS5 搜索 + CORS/日志中间件 |
 | 3 Engine 移植 | ✅ | rank/unrank/scatter/格律 全部 Go 化, 21 tests |
 | 4 前端适配 | ✅ | load.ts API 化 + Vite proxy + 数据形状对齐 |
-| 5 部署集成 | ⬜ | Docker / Nginx / Systemd / CI/CD |
+| 5 部署集成 | ✅ | Docker 多阶段构建 |
 | 6 功能增强 | ⬜ | 用户系统 / 收藏 / AI 作诗 / i18n |
 
 ## 开发

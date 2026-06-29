@@ -4,7 +4,7 @@
   <a href="README.en.md">English</a> | 中文
 </p>
 
-> 一张可漫游的三维星图：32,657 位真实诗人化为星团，虚空是一切可能的诗——点击拾取，编号即诗、诗即编号。
+> 一张可漫游的三维星图：28,156 位真实诗人化为星团，虚空是一切可能的诗——点击拾取，编号即诗、诗即编号。
 
 Forked from [Cohenjikan/shiyun](https://github.com/Cohenjikan/shiyun).  
 前端保留原项目 Three.js 星系渲染引擎，后端以 Go + SQLite 重写。
@@ -49,6 +49,9 @@ git clone https://github.com/Cohenjikan/shiyun-corpus.git corpus/shiyun-corpus
 ### 3. 构建数据分片
 
 ```bash
+$env:CORPUS_SOURCE="shiyun-corpus"
+$env:SHIYUN_CORPUS_DIR="corpus/shiyun-corpus/data"
+$env:REFLOW_CHARSET="1"
 npm run build:lines       # poems shard + 搜索索引
 npm run build:fuzzy       # 模糊搜索索引 (可选)
 ```
@@ -131,12 +134,12 @@ SQLite (WAL 模式), 含全量诗作文本 + FTS5 全文索引。
 
 | 表 | 行数 | 说明 |
 |:---|:---|:---|
-| `poets` | 32,657 | 诗人元信息 |
-| `poems` | 853,383 | 诗作全文 |
-| `poems_fts` | 853,383 | FTS5 全文索引 |
-| `charset` | 12,877 | 字库 (频率排序) |
+| `poets` | 28,156 | 诗人元信息 |
+| `poems` | 763,543 | 诗作全文 |
+| `poems_fts` | 763,543 | FTS5 全文索引 |
+| `charset` | 22,185 | 字库 (频率排序) |
 | `lexicon_*` | — | 平水韵声调/韵部 |
-| `gift_edges` | 4,980 | 赠诗网络有向边 |
+| `gift_edges` | 4,481 | 赠诗网络有向边 |
 
 ## 部署
 
@@ -167,7 +170,7 @@ docker run -d \
 - **Stage 1** — Node.js 构建前端 (`npm ci` → `npm run build` → `dist/`)
 - **Stage 2** — Go 构建后端 (`CGO_ENABLED=0`，静态链接，strip symbols)
 - **Stage 3** — Alpine 运行时，仅含二进制 + 前端静态文件
-- 数据库通过 volume 挂载，不打包进镜像（`shiyun.db` ~679MB）
+- 数据库通过 volume 挂载，不打包进镜像（`shiyun.db` ~602MB）
 
 ## 命令参考
 
@@ -188,7 +191,7 @@ docker run -d \
 
 | 层 | 技术 |
 |:---|:---|
-| 前端框架 | Vite 8 + React 18 + TypeScript |
+| 前端框架 | Vite + React 18 + TypeScript |
 | 3D 渲染 | Three.js 0.169 + @react-three/fiber |
 | 状态管理 | Zustand 5 |
 | 后端 | Go + net/http (零第三方 HTTP 依赖) |
@@ -200,10 +203,10 @@ docker run -d \
 
 诗云有两个目录：
 
-- **真实诗** — 从开放语料 (shiyun-corpus) 导入的 97 万首诗人作品。每位诗人化为一个星团，诗句可全文搜索。
+- **真实诗** — 从开放语料 (shiyun-corpus) 导入的 76 万首诗人作品。每位诗人化为一个星团，诗句可全文搜索。
 - **所有可能的诗** — 通过可逆的 rank/unrank 数学映射（灵感来自博尔赫斯《巴别图书馆》和刘慈欣《诗云》）凭空计算生成——给定一个超长编号即可精确生成一首诗，反之亦然。**不存储、仅计算**。
 
-两种诗的编号来自同一套 anyRank 全目录，因此 32,657 位真实诗人的每一首作品在"所有可能诗"的虚空中都有一个唯一的编号坐标。
+两种诗的编号来自同一套 anyRank 全目录，因此 28,156 位真实诗人的每一首作品在"所有可能诗"的虚空中都有一个唯一的编号坐标。
 
 ## 开发进度
 
@@ -231,11 +234,11 @@ npm run typecheck                    # tsc --noEmit
 
 ## License
 
-MIT — 详见原项目 [Cohenjikan/shiyun](https://github.com/Cohenjikan/shiyun).
+PolyForm Noncommercial 1.0.0 — 详见 [LICENSE](./LICENSE) 及原项目 [Cohenjikan/shiyun](https://github.com/Cohenjikan/shiyun).
 
 ---
 
 <p align="center">
-  <sub>Created by <a href="https://github.com/Cohenjikan">Cohenjikan</a> &amp; <strong>JulianM</strong><br>
+  <sub>Created by <a href="https://github.com/Cohenjikan">Cohenjikan</a> &amp; <a href="https://github.com/JulianMeng">JulianMeng</a><br>
   Powered by <strong>DeepSeek</strong> and <strong>Claude Code</strong></sub>
 </p>

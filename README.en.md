@@ -4,7 +4,7 @@
   English | <a href="README.md">中文</a>
 </p>
 
-> A roamable 3D star map: 32,657 real historical poets rendered as star clusters.  
+> A roamable 3D star map: 28,156 real historical poets rendered as star clusters.  
 > The void between them is the space of *all possible poems* — click to pull one out.  
 > The number IS the poem, and vice versa.
 
@@ -51,6 +51,9 @@ git clone https://github.com/Cohenjikan/shiyun-corpus.git corpus/shiyun-corpus
 ### 3. Build data shards
 
 ```bash
+$env:CORPUS_SOURCE="shiyun-corpus"
+$env:SHIYUN_CORPUS_DIR="corpus/shiyun-corpus/data"
+$env:REFLOW_CHARSET="1"
 npm run build:lines       # poem shards + search index
 npm run build:fuzzy       # fuzzy search index (optional)
 ```
@@ -133,12 +136,12 @@ SQLite (WAL mode), includes full poem texts + FTS5 index.
 
 | Table | Rows | Description |
 |:---|:---|:---|
-| `poets` | 32,657 | Poet metadata |
-| `poems` | 853,383 | Full poem texts |
-| `poems_fts` | 853,383 | FTS5 full-text index |
-| `charset` | 12,877 | Character set (frequency-ordered) |
+| `poets` | 28,156 | Poet metadata |
+| `poems` | 763,543 | Full poem texts |
+| `poems_fts` | 763,543 | FTS5 full-text index |
+| `charset` | 22,185 | Character set (frequency-ordered) |
 | `lexicon_*` | — | Tone & rhyme tables |
-| `gift_edges` | 4,980 | Gift network directed edges |
+| `gift_edges` | 4,481 | Gift network directed edges |
 
 ## Deployment
 
@@ -169,7 +172,7 @@ Open `http://localhost:8080` in browser.
 - **Stage 1** — Node.js frontend build (`npm ci` → `npm run build` → `dist/`)
 - **Stage 2** — Go backend build (`CGO_ENABLED=0`, statically linked, stripped)
 - **Stage 3** — Alpine runtime, binary + frontend assets only
-- Database is volume-mounted, not baked into the image (`shiyun.db` ~679 MB)
+- Database is volume-mounted, not baked into the image (`shiyun.db` ~602 MB)
 
 ## Commands
 
@@ -190,7 +193,7 @@ Open `http://localhost:8080` in browser.
 
 | Layer | Technology |
 |:---|:---|
-| Frontend | Vite 8 + React 18 + TypeScript |
+| Frontend | Vite + React 18 + TypeScript |
 | 3D Rendering | Three.js 0.169 + @react-three/fiber |
 | State | Zustand 5 |
 | Backend | Go + net/http (zero 3rd-party HTTP deps) |
@@ -202,10 +205,10 @@ Open `http://localhost:8080` in browser.
 
 Poetry Cloud has two catalogs:
 
-- **Real poems** — 970k+ works from the shiyun-corpus. Each poet is a star cluster; every line is searchable.
+- **Real poems** — 760k+ works from the shiyun-corpus. Each poet is a star cluster; every line is searchable.
 - **All possible poems** — generated on the fly via a reversible rank/unrank mathematical mapping (inspired by Borges' *Library of Babel* and Liu Cixin's *Poetry Cloud*). Given a number, you get an exact poem; given a poem, you get its number. **Not stored — computed.**
 
-Both catalogs share one address space: every real poem has a unique coordinate in the void of all possible poems.
+Both catalogs share one address space: every real poem from 28,156 poets has a unique coordinate in the void of all possible poems.
 
 ## Development Progress
 
@@ -233,11 +236,11 @@ npm run typecheck                    # tsc --noEmit
 
 ## License
 
-MIT — see original project [Cohenjikan/shiyun](https://github.com/Cohenjikan/shiyun).
+PolyForm Noncommercial 1.0.0 — see [LICENSE](./LICENSE) and original project [Cohenjikan/shiyun](https://github.com/Cohenjikan/shiyun).
 
 ---
 
 <p align="center">
-  <sub>Created by <a href="https://github.com/Cohenjikan">Cohenjikan</a> &amp; <strong>JulianM</strong><br>
+  <sub>Created by <a href="https://github.com/Cohenjikan">Cohenjikan</a> &amp; <a href="https://github.com/JulianMeng">JulianMeng</a><br>
   Powered by <strong>DeepSeek</strong> and <strong>Claude Code</strong></sub>
 </p>
